@@ -1,0 +1,213 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  --card-bg: rgba(255, 255, 255, 0.88);
+  --border-color: rgba(226, 232, 240, 0.9);
+  --primary: #0284c7;
+  --secondary: #059669;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  overflow-x: hidden;
+}
+
+/* Light Mode (Home Page) Styling */
+.light-homepage {
+  background-color: #f8fafc;
+  background-image: 
+    radial-gradient(rgba(2, 132, 199, 0.07) 1px, transparent 1px),
+    radial-gradient(rgba(5, 150, 105, 0.05) 1px, transparent 1px);
+  background-size: 32px 32px;
+  background-position: 0 0, 16px 16px;
+  color: #0f172a;
+}
+
+/* Dark Glowing Mode (Second Page: Sign in, Sign up & Dashboard Portals) */
+.dark-portal {
+  background-color: #0b0f19;
+  background-image: 
+    radial-gradient(rgba(2, 132, 199, 0.15) 1px, transparent 1px),
+    radial-gradient(rgba(5, 150, 105, 0.1) 1px, transparent 1px);
+  background-size: 36px 36px;
+  background-position: 0 0, 18px 18px;
+  color: #f8fafc;
+}
+
+/* 3D Perspective & Hologram Card Classes */
+.perspective-1000 {
+  perspective: 1000px;
+}
+
+.preserve-3d {
+  transform-style: preserve-3d;
+}
+
+.card-3d {
+  transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.6s ease;
+  transform: rotateY(-10deg) rotateX(7deg);
+}
+
+.card-3d:hover {
+  transform: rotateY(0deg) rotateX(0deg) scale(1.02);
+}
+
+/* Light Glassmorphism & Google Stitch Panels (For Home Page) */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  box-shadow: 0 12px 35px -4px rgba(15, 23, 42, 0.07), 0 4px 12px -2px rgba(15, 23, 42, 0.04);
+}
+
+.glass-stitch {
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  box-shadow: 0 20px 45px -10px rgba(2, 132, 199, 0.08), 0 8px 20px -4px rgba(15, 23, 42, 0.04);
+}
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  box-shadow: 0 4px 15px rgba(15, 23, 42, 0.04);
+}
+
+/* Dark Glowing Glassmorphism (For Portals & Auth Views) */
+.glass-panel-dark {
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.6), 0 0 25px rgba(2, 132, 199, 0.1);
+}
+
+.glass-stitch-dark {
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(56, 189, 248, 0.2);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 35px rgba(56, 189, 248, 0.15);
+}
+
+.glass-card-dark {
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+}
+
+.glow-cyan {
+  box-shadow: 0 0 35px rgba(2, 132, 199, 0.35);
+}
+
+.glow-emerald {
+  box-shadow: 0 0 35px rgba(5, 150, 105, 0.35);
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(241, 245, 249, 0.7);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(2, 132, 199, 0.3);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(2, 132, 199, 0.6);
+}
+
+/* Custom Animations */
+@keyframes pulse-glow {
+  0%, 100% {
+    opacity: 0.7;
+    box-shadow: 0 0 15px rgba(2, 132, 199, 0.3);
+  }
+  50% {
+    opacity: 1;
+    box-shadow: 0 0 30px rgba(2, 132, 199, 0.6);
+  }
+}
+
+.pulse-glow-border {
+  animation: pulse-glow 2.5s infinite ease-in-out;
+}
+
+@keyframes float-slow {
+  0%, 100% {
+    transform: translateY(0px) rotateY(-8deg);
+  }
+  50% {
+    transform: translateY(-8px) rotateY(-5deg);
+  }
+}
+
+.animate-float {
+  animation: float-slow 5s infinite ease-in-out;
+}
+
+/* 3D Dynamic Orbit Rotation & Counter-Rotation */
+@keyframes orbit-track-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes counter-orbit-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(-360deg); }
+}
+
+@keyframes pulse-radar {
+  0% { transform: scale(0.92); opacity: 0.7; }
+  50% { transform: scale(1.18); opacity: 0.15; }
+  100% { transform: scale(0.92); opacity: 0.7; }
+}
+
+.animate-orbit-track {
+  animation: orbit-track-spin 35s linear infinite;
+}
+
+.animate-counter-orbit {
+  animation: counter-orbit-spin 35s linear infinite;
+}
+
+.animate-spin-slow {
+  animation: orbit-track-spin 30s linear infinite;
+}
+
+.animate-spin-reverse {
+  animation: counter-orbit-spin 30s linear infinite;
+}
+
+.animate-pulse-radar {
+  animation: pulse-radar 3.5s ease-in-out infinite;
+}
+
+@keyframes marquee-flow {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+.animate-marquee {
+  display: flex;
+  width: max-content;
+  animation: marquee-flow 25s linear infinite;
+}
+
+.animate-marquee:hover {
+  animation-play-state: paused;
+}

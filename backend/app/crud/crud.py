@@ -96,8 +96,8 @@ def create_patient(db: Session, pat_in: schemas.PatientCreate):
     db_user = create_user(db, pat_in.user)
     health_id = generate_health_id(db)
     
-    # We will exclude user fields from mapping
-    pat_data = pat_in.model_dump(exclude={"user"})
+    # We will exclude user and previous_prescriptions fields from mapping
+    pat_data = pat_in.model_dump(exclude={"user", "previous_prescriptions"})
     db_patient = models.Patient(
         user_id=db_user.id,
         health_id=health_id,
@@ -106,6 +106,27 @@ def create_patient(db: Session, pat_in: schemas.PatientCreate):
     db.add(db_patient)
     db.commit()
     db.refresh(db_patient)
+
+    if pat_in.previous_prescriptions:
+        for prev_p in pat_in.previous_prescriptions:
+            db_prev = models.PreviousPrescription(
+                patient_id=db_patient.id,
+                **prev_p.model_dump()
+            )
+            db.add(db_prev)
+        db.commit()
+
+    # Automatically issue an initial secure QR Token for the patient
+    initial_qr_token = "QR-" + secrets.token_urlsafe(32)
+    db_qr = models.QRToken(
+        patient_id=db_patient.id,
+        token=initial_qr_token,
+        status="active",
+        expires_at=datetime.utcnow() + timedelta(hours=72)
+    )
+    db.add(db_qr)
+    db.commit()
+
     return db_patient
 
 def get_patients(db: Session):
@@ -146,11 +167,11 @@ def get_qr_token_by_token(db: Session, token: str):
     return db.query(models.QRToken).filter(models.QRToken.token == token).first()
 
 def create_qr_token(db: Session, qr_in: schemas.QRTokenCreate):
-    # Revoke old tokens
+    # Revoke old active tokens
     db.query(models.QRToken).filter(
         models.QRToken.patient_id == qr_in.patient_id,
         models.QRToken.status == "active"
-    ).update({"status": "revoked"})
+    ).update({"status": "revoked", "revoked_at": datetime.utcnow()})
 
     token_str = "QR-" + secrets.token_urlsafe(32)
     expires_at = datetime.utcnow() + timedelta(hours=qr_in.expires_in_hours)
@@ -170,9 +191,78 @@ def revoke_qr_token(db: Session, qr_id: int):
     db_qr = db.query(models.QRToken).filter(models.QRToken.id == qr_id).first()
     if db_qr:
         db_qr.status = "revoked"
+        db_qr.revoked_at = datetime.utcnow()
         db.commit()
         db.refresh(db_qr)
     return db_qr
+
+def get_restricted_medical_history_by_token(db: Session, token: str):
+    db_token = get_qr_token_by_token(db, token)
+    if not db_token:
+        return None, "invalid"
+
+    if db_token.status == "revoked" or db_token.revoked_at is not None:
+        return None, "revoked"
+
+    if db_token.expires_at < datetime.utcnow() or db_token.status == "expired":
+        if db_token.status != "expired":
+            db_token.status = "expired"
+            db.commit()
+        return None, "expired"
+
+    patient = get_patient(db, db_token.patient_id)
+    if not patient:
+        return None, "patient_not_found"
+
+    # Get previous uploaded/historical prescriptions
+    previous_prescriptions = get_previous_prescriptions_by_patient(db, patient.id)
+
+    # Get clinical prescriptions & medications (from doctors)
+    records = (
+        db.query(models.MedicalRecord)
+        .filter(models.MedicalRecord.patient_id == patient.id)
+        .order_by(models.MedicalRecord.visit_date.desc())
+        .all()
+    )
+
+    clinical_prescriptions = []
+    for rec in records:
+        if rec.prescriptions:
+            for rx in rec.prescriptions:
+                doc = rec.doctor
+                doc_name = f"Dr. {doc.user.username.capitalize()}" if (doc and doc.user) else "Attending Physician"
+                meds = [
+                    schemas.RestrictedMedicationItem(
+                        id=m.id,
+                        name=m.name,
+                        dosage=m.dosage,
+                        frequency=m.frequency,
+                        duration=m.duration,
+                        notes=m.notes,
+                    )
+                    for m in rx.medications
+                ]
+                clinical_prescriptions.append(
+                    schemas.RestrictedClinicalPrescriptionItem(
+                        id=rx.id,
+                        doctor_name=doc_name,
+                        issued_at=rx.issued_at or rec.visit_date,
+                        instructions=rx.instructions,
+                        medications=meds,
+                    )
+                )
+
+    patient_name = patient.user.username.capitalize() if (patient.user and patient.user.username) else "Patient"
+
+    data = {
+        "patient_name": patient_name,
+        "health_id": patient.health_id,
+        "token_status": db_token.status,
+        "token_expires_at": db_token.expires_at,
+        "previous_prescriptions": previous_prescriptions,
+        "clinical_prescriptions": clinical_prescriptions,
+    }
+    return data, "ok"
 
 # Medical Records CRUD
 def create_medical_record(db: Session, rec_in: schemas.MedicalRecordCreate, doctor_id: int):
@@ -181,7 +271,8 @@ def create_medical_record(db: Session, rec_in: schemas.MedicalRecordCreate, doct
         patient_id=rec_in.patient_id,
         doctor_id=doctor_id,
         symptoms=rec_in.symptoms,
-        notes=rec_in.notes
+        notes=rec_in.notes,
+        handwritten_prescription=rec_in.handwritten_prescription
     )
     db.add(db_rec)
     db.commit()
@@ -292,6 +383,33 @@ def revoke_consent(db: Session, consent_id: int):
         db.refresh(db_consent)
     return db_consent
 
+# Previous Prescriptions
+def create_previous_prescription(db: Session, pat_id: int, presc_in: schemas.PreviousPrescriptionCreate):
+    db_presc = models.PreviousPrescription(
+        patient_id=pat_id,
+        **presc_in.model_dump()
+    )
+    db.add(db_presc)
+    db.commit()
+    db.refresh(db_presc)
+    return db_presc
+
+def get_previous_prescriptions_by_patient(db: Session, patient_id: int):
+    return db.query(models.PreviousPrescription).filter(
+        models.PreviousPrescription.patient_id == patient_id
+    ).order_by(models.PreviousPrescription.created_at.desc()).all()
+
+def delete_previous_prescription(db: Session, presc_id: int, patient_id: int):
+    db_presc = db.query(models.PreviousPrescription).filter(
+        models.PreviousPrescription.id == presc_id,
+        models.PreviousPrescription.patient_id == patient_id
+    ).first()
+    if db_presc:
+        db.delete(db_presc)
+        db.commit()
+        return True
+    return False
+
 # Audit Log
 def create_audit_log(db: Session, action: str, details: str, user_id: Optional[int] = None, ip_address: Optional[str] = None):
     db_log = models.AuditLog(
@@ -307,3 +425,4 @@ def create_audit_log(db: Session, action: str, details: str, user_id: Optional[i
 
 def get_audit_logs(db: Session, limit: int = 100):
     return db.query(models.AuditLog).order_by(models.AuditLog.timestamp.desc()).limit(limit).all()
+

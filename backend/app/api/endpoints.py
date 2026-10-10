@@ -206,6 +206,7 @@ def get_patient_own_profile(current_user: models.User = Depends(RoleChecker(["pa
 
     vaccinations = crud.get_vaccinations_by_patient(db, patient.id)
     surgeries = crud.get_surgeries_by_patient(db, patient.id)
+    previous_prescriptions = crud.get_previous_prescriptions_by_patient(db, patient.id)
     
     # Fetch active/revoked RFID cards & QR Tokens
     rfid_cards = db.query(models.RFIDCard).filter(models.RFIDCard.patient_id == patient.id).all()
@@ -224,12 +225,54 @@ def get_patient_own_profile(current_user: models.User = Depends(RoleChecker(["pa
     return {
         "patient": patient,
         "medical_records": records_with_names,
+        "previous_prescriptions": previous_prescriptions,
         "vaccinations": vaccinations,
         "surgeries": surgeries,
         "rfid_cards": rfid_cards,
         "qr_tokens": qr_tokens,
         "consents": consents
     }
+
+@router.post("/patients/me/prescriptions", response_model=schemas.PreviousPrescriptionResponse)
+def add_patient_own_prescription(
+    presc_in: schemas.PreviousPrescriptionCreate,
+    current_user: models.User = Depends(RoleChecker(["patient"])),
+    db: Session = Depends(get_db)
+):
+    patient = crud.get_patient_by_user_id(db, current_user.id)
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient profile not found")
+    
+    presc = crud.create_previous_prescription(db, patient.id, presc_in)
+    crud.create_audit_log(
+        db,
+        "ADD_PREVIOUS_PRESCRIPTION",
+        f"Patient {patient.health_id} uploaded previous prescription: '{presc.title}' (Source: {presc.source})",
+        user_id=current_user.id
+    )
+    return presc
+
+@router.delete("/patients/me/prescriptions/{presc_id}")
+def delete_patient_own_prescription(
+    presc_id: int,
+    current_user: models.User = Depends(RoleChecker(["patient"])),
+    db: Session = Depends(get_db)
+):
+    patient = crud.get_patient_by_user_id(db, current_user.id)
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient profile not found")
+    
+    success = crud.delete_previous_prescription(db, presc_id, patient.id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Prescription record not found")
+    
+    crud.create_audit_log(
+        db,
+        "DELETE_PREVIOUS_PRESCRIPTION",
+        f"Patient {patient.health_id} removed previous prescription ID {presc_id}",
+        user_id=current_user.id
+    )
+    return {"status": "success", "message": "Previous prescription deleted successfully"}
 
 # ----------------- DOCTOR / RECORD SEARCH -----------------
 
@@ -270,23 +313,51 @@ def get_patient_profile_by_doctor(
 
     vaccinations = crud.get_vaccinations_by_patient(db, patient.id)
     surgeries = crud.get_surgeries_by_patient(db, patient.id)
+    previous_prescriptions = crud.get_previous_prescriptions_by_patient(db, patient.id)
     
     crud.create_audit_log(
         db, 
         "VIEW_RECORDS", 
-        f"Doctor {current_user.username} viewed full medical records of patient {health_id}", 
+        f"Doctor {current_user.username} viewed full medical records and {len(previous_prescriptions)} previous prescriptions of patient {health_id}", 
         user_id=current_user.id
     )
 
     return {
         "patient": patient,
         "medical_records": records_with_names,
+        "previous_prescriptions": previous_prescriptions,
         "vaccinations": vaccinations,
         "surgeries": surgeries,
         "rfid_cards": [],
         "qr_tokens": [],
         "consents": []
     }
+
+@router.post("/patients/{health_id}/prescriptions", response_model=schemas.PreviousPrescriptionResponse)
+def add_patient_prescription_by_health_id(
+    health_id: str,
+    presc_in: schemas.PreviousPrescriptionCreate,
+    current_user: models.User = Depends(get_current_active_user),
+    db: Session = Depends(get_db)
+):
+    patient = crud.get_patient_by_health_id(db, health_id)
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient not found")
+    
+    # If patient, verify ownership
+    if current_user.role == "patient":
+        own_patient = crud.get_patient_by_user_id(db, current_user.id)
+        if not own_patient or own_patient.id != patient.id:
+            raise HTTPException(status_code=403, detail="Unauthorized")
+    
+    presc = crud.create_previous_prescription(db, patient.id, presc_in)
+    crud.create_audit_log(
+        db,
+        "ADD_PREVIOUS_PRESCRIPTION",
+        f"Prescription '{presc.title}' added for patient {health_id} by {current_user.username}",
+        user_id=current_user.id
+    )
+    return presc
 
 # ----------------- EMERGENCY PROFILE -----------------
 
@@ -431,8 +502,8 @@ def scan_qr_token(
         raise HTTPException(status_code=400, detail="Token not provided")
     
     db_token = crud.get_qr_token_by_token(db, token_str)
-    if not db_token or db_token.status != "active":
-        raise HTTPException(status_code=404, detail="Invalid or revoked QR Token")
+    if not db_token:
+        raise HTTPException(status_code=404, detail="Invalid QR Token")
     
     if db_token.expires_at < datetime.utcnow():
         db_token.status = "expired"
@@ -446,18 +517,16 @@ def scan_qr_token(
     # as it demonstrates the patient physically presented their card to the doctor
     crud.create_consent(db, patient.id, doctor.id, expires_in_hours=2)
     
-    # Single-use security: Revoke/invalidate scanned token so it cannot be reused
-    db_token.status = "revoked"
+    # Instant patient identification token verification pipeline:
+    # Make the QR code token status active in the database when the particular patient's QR is scanned
+    db_token.status = "active"
     db.commit()
-    
-    # Auto-generate a new unique QR token for the patient's next scan session
-    new_qr_schema = schemas.QRTokenCreate(patient_id=patient.id, expires_in_hours=24)
-    crud.create_qr_token(db, new_qr_schema)
+    db.refresh(db_token)
     
     crud.create_audit_log(
         db, 
         "QR_SCAN", 
-        f"Doctor {current_user.username} scanned QR token, revoked old token, generated fresh token, and was granted 2h consent for patient {patient.health_id}", 
+        f"Doctor {current_user.username} scanned QR token (status: active), verified patient credentials and was granted 2h consent for patient {patient.health_id}", 
         user_id=current_user.id
     )
     
@@ -472,15 +541,117 @@ def scan_qr_token(
 
     vaccinations = crud.get_vaccinations_by_patient(db, patient.id)
     surgeries = crud.get_surgeries_by_patient(db, patient.id)
+    previous_prescriptions = crud.get_previous_prescriptions_by_patient(db, patient.id)
     
+    rfid_cards = db.query(models.RFIDCard).filter(models.RFIDCard.patient_id == patient.id).all()
+    qr_tokens = db.query(models.QRToken).filter(
+        models.QRToken.patient_id == patient.id,
+        models.QRToken.status == "active"
+    ).order_by(models.QRToken.created_at.desc()).all()
+    consents = db.query(models.Consent).filter(models.Consent.patient_id == patient.id).all()
+
     return {
         "patient": patient,
         "medical_records": records_with_names,
+        "previous_prescriptions": previous_prescriptions,
         "vaccinations": vaccinations,
         "surgeries": surgeries,
-        "rfid_cards": [],
-        "qr_tokens": [],
-        "consents": []
+        "rfid_cards": rfid_cards,
+        "qr_tokens": qr_tokens,
+        "consents": consents
+    }
+
+@router.get("/medical-history/{token}", response_model=schemas.RestrictedMedicalHistoryResponse)
+@router.get("/qr/medical-history/{token}", response_model=schemas.RestrictedMedicalHistoryResponse)
+def get_medical_history_by_qr_token(token: str, db: Session = Depends(get_db)):
+    data, err_status = crud.get_restricted_medical_history_by_token(db, token)
+    
+    if err_status == "invalid":
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, 
+            detail="Invalid QR security token. The code may be incorrect or unrecognized."
+        )
+    elif err_status == "revoked":
+        raise HTTPException(
+            status_code=status.HTTP_410_GONE, 
+            detail="This QR code has been revoked by the patient for security."
+        )
+    elif err_status == "expired":
+        raise HTTPException(
+            status_code=status.HTTP_410_GONE, 
+            detail="This QR code has expired. Please ask the patient to generate a new active QR code."
+        )
+    elif err_status == "patient_not_found":
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, 
+            detail="Patient record associated with this QR token could not be found."
+        )
+    
+    # Audit log access to restricted medical history
+    crud.create_audit_log(
+        db, 
+        "QR_MED_HISTORY_SCAN", 
+        f"Restricted medical history accessed for patient {data['health_id']} via QR token {token[:12]}...", 
+        user_id=None
+    )
+    
+    return data
+
+@router.get("/qr/view/{token}", response_model=schemas.PatientFullProfile)
+@router.get("/qr/public-view/{token}", response_model=schemas.PatientFullProfile)
+def get_qr_public_view(token: str, db: Session = Depends(get_db)):
+    db_token = crud.get_qr_token_by_token(db, token)
+    if not db_token:
+        raise HTTPException(status_code=404, detail="Invalid QR Token")
+    
+    if db_token.expires_at < datetime.utcnow():
+        db_token.status = "expired"
+        db.commit()
+        raise HTTPException(status_code=400, detail="QR Token has expired. Please ask the patient to generate a new QR code.")
+    
+    if db_token.status == "revoked":
+        raise HTTPException(status_code=400, detail="QR Token has been revoked.")
+
+    patient = crud.get_patient(db, db_token.patient_id)
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient profile not found")
+
+    crud.create_audit_log(
+        db, 
+        "QR_PUBLIC_SCAN", 
+        f"Public QR scan accessed patient profile {patient.health_id} via token {token[:12]}...", 
+        user_id=None
+    )
+
+    records = crud.get_medical_records_by_patient(db, patient.id)
+    records_with_names = []
+    for r in records:
+        r_schema = schemas.MedicalRecordResponse.model_validate(r)
+        doc = crud.get_doctor(db, r.doctor_id)
+        if doc and doc.user:
+            r_schema.doctor_name = f"Dr. {doc.user.username.capitalize()}"
+        records_with_names.append(r_schema)
+
+    vaccinations = crud.get_vaccinations_by_patient(db, patient.id)
+    surgeries = crud.get_surgeries_by_patient(db, patient.id)
+    previous_prescriptions = crud.get_previous_prescriptions_by_patient(db, patient.id)
+    
+    rfid_cards = db.query(models.RFIDCard).filter(models.RFIDCard.patient_id == patient.id).all()
+    qr_tokens = db.query(models.QRToken).filter(
+        models.QRToken.patient_id == patient.id,
+        models.QRToken.status == "active"
+    ).order_by(models.QRToken.created_at.desc()).all()
+    consents = db.query(models.Consent).filter(models.Consent.patient_id == patient.id).all()
+
+    return {
+        "patient": patient,
+        "medical_records": records_with_names,
+        "previous_prescriptions": previous_prescriptions,
+        "vaccinations": vaccinations,
+        "surgeries": surgeries,
+        "rfid_cards": rfid_cards,
+        "qr_tokens": qr_tokens,
+        "consents": consents
     }
 
 # ----------------- RFID ENDPOINTS -----------------
@@ -546,10 +717,12 @@ def scan_rfid_card(
 
     vaccinations = crud.get_vaccinations_by_patient(db, patient.id)
     surgeries = crud.get_surgeries_by_patient(db, patient.id)
+    previous_prescriptions = crud.get_previous_prescriptions_by_patient(db, patient.id)
     
     return {
         "patient": patient,
         "medical_records": records_with_names,
+        "previous_prescriptions": previous_prescriptions,
         "vaccinations": vaccinations,
         "surgeries": surgeries,
         "rfid_cards": [],

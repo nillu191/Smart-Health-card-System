@@ -16,6 +16,11 @@ body {
   overflow-x: hidden;
 }
 
+button, a, input, select, textarea, [role="button"] {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
 /* Light Mode (Home Page) Styling */
 .light-homepage {
   background-color: #f8fafc;

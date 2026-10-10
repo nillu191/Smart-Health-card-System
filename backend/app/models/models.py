@@ -70,6 +70,26 @@ class Patient(Base):
     vaccinations = relationship("Vaccination", back_populates="patient")
     surgeries = relationship("Surgery", back_populates="patient")
     consents = relationship("Consent", back_populates="patient")
+    previous_prescriptions = relationship("PreviousPrescription", back_populates="patient", cascade="all, delete-orphan")
+
+class PreviousPrescription(Base):
+    __tablename__ = "previous_prescriptions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    patient_id = Column(Integer, ForeignKey("patients.id"), nullable=False)
+    title = Column(String, nullable=False)
+    doctor_name = Column(String, nullable=True)
+    prescription_date = Column(String, nullable=True)
+    source = Column(String, default="local_storage")  # 'local_storage', 'phone_upload', 'google_drive'
+    file_name = Column(String, nullable=True)
+    file_type = Column(String, nullable=True)
+    file_data = Column(Text, nullable=True)  # Base64 data URL or Drive URL
+    notes = Column(Text, nullable=True)
+    medications_summary = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Relationships
+    patient = relationship("Patient", back_populates="previous_prescriptions")
 
 class RFIDCard(Base):
     __tablename__ = "rfid_cards"
@@ -93,6 +113,7 @@ class QRToken(Base):
     status = Column(String, default="active")  # 'active', 'revoked', 'expired'
     created_at = Column(DateTime, default=datetime.utcnow)
     expires_at = Column(DateTime, nullable=False)
+    revoked_at = Column(DateTime, nullable=True)
 
     # Relationships
     patient = relationship("Patient", back_populates="qr_tokens")
@@ -106,6 +127,7 @@ class MedicalRecord(Base):
     visit_date = Column(DateTime, default=datetime.utcnow)
     symptoms = Column(Text, nullable=True)
     notes = Column(Text, nullable=True)
+    handwritten_prescription = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     # Relationships

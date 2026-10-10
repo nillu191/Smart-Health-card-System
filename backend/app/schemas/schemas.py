@@ -90,6 +90,29 @@ class DoctorNMRLoginRequest(BaseModel):
     nmr_id: str
     password: str
 
+# Previous Prescription Schemas
+class PreviousPrescriptionBase(BaseModel):
+    title: str
+    doctor_name: Optional[str] = None
+    prescription_date: Optional[str] = None
+    source: Optional[str] = "local_storage"  # 'local_storage', 'phone_upload', 'google_drive'
+    file_name: Optional[str] = None
+    file_type: Optional[str] = None
+    file_data: Optional[str] = None
+    notes: Optional[str] = None
+    medications_summary: Optional[str] = None
+
+class PreviousPrescriptionCreate(PreviousPrescriptionBase):
+    pass
+
+class PreviousPrescriptionResponse(PreviousPrescriptionBase):
+    id: int
+    patient_id: int
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
 # Patient Schemas
 class PatientBase(BaseModel):
     date_of_birth: Optional[str] = None
@@ -101,6 +124,7 @@ class PatientBase(BaseModel):
 
 class PatientCreate(PatientBase):
     user: UserCreate
+    previous_prescriptions: Optional[List[PreviousPrescriptionCreate]] = []
 
 class PatientResponse(BaseModel):
     id: int
@@ -150,6 +174,40 @@ class QRTokenResponse(BaseModel):
     status: str
     created_at: datetime
     expires_at: datetime
+    revoked_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+# Restricted Medical History Schemas for Secure QR Scan
+class RestrictedMedicationItem(BaseModel):
+    id: Optional[int] = None
+    name: str
+    dosage: str
+    frequency: str
+    duration: str
+    notes: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+class RestrictedClinicalPrescriptionItem(BaseModel):
+    id: int
+    doctor_name: Optional[str] = "Attending Physician"
+    issued_at: Optional[datetime] = None
+    instructions: Optional[str] = None
+    medications: List[RestrictedMedicationItem] = []
+
+    class Config:
+        from_attributes = True
+
+class RestrictedMedicalHistoryResponse(BaseModel):
+    patient_name: str
+    health_id: str
+    token_status: str
+    token_expires_at: datetime
+    previous_prescriptions: List[PreviousPrescriptionResponse] = []
+    clinical_prescriptions: List[RestrictedClinicalPrescriptionItem] = []
 
     class Config:
         from_attributes = True
@@ -227,6 +285,7 @@ class LabReportResponse(LabReportBase):
 class MedicalRecordBase(BaseModel):
     symptoms: Optional[str] = None
     notes: Optional[str] = None
+    handwritten_prescription: Optional[str] = None
 
 class MedicalRecordCreate(MedicalRecordBase):
     patient_id: int
@@ -325,6 +384,7 @@ class EmergencyProfile(BaseModel):
 class PatientFullProfile(BaseModel):
     patient: PatientResponse
     medical_records: List[MedicalRecordResponse] = []
+    previous_prescriptions: List[PreviousPrescriptionResponse] = []
     vaccinations: List[VaccinationResponse] = []
     surgeries: List[SurgeryResponse] = []
     rfid_cards: List[RFIDCardResponse] = []

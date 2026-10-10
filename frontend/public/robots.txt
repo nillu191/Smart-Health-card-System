@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /
+Allow: /privacy
+Allow: /terms
+Allow: /cookies
+Allow: /contact
+Allow: /thank-you
+Allow: /scan
+Disallow: /api/
+
+Sitemap: https://smarthealth.id/sitemap.xml

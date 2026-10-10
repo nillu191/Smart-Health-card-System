@@ -1,20 +1,27 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
+import Link from "next/link";
+import Footer from "@/components/Footer";
+import StickyMobileCTA from "@/components/StickyMobileCTA";
 import { 
   HeartPulse, Activity, QrCode, Rss, ShieldAlert, Clock, User, 
   Plus, Trash2, Building, Users, CheckCircle, CheckCircle2, AlertCircle, 
   Calendar, FileText, Layers, Lock, Unlock, Settings, Camera, 
   Database, Sparkles, LogOut, Search, FileUp, Key, ShieldCheck,
-  Stethoscope, BadgeCheck, ArrowRight, RefreshCw, Zap, Radio, Hospital, Cpu, ChevronRight
+  Stethoscope, BadgeCheck, ArrowRight, RefreshCw, Zap, Radio, Hospital, Cpu, ChevronRight,
+  Upload, HardDrive, Smartphone, Cloud, ExternalLink, Eye, X, Image as ImageIcon,
+  FileCheck, ClipboardList, Check, Share2, Copy, Download, Paperclip, FolderPlus,
+  PenTool, Edit3, Eraser, Maximize2, RotateCcw, Undo2, Menu, Phone
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 
-// In production, configure through next env variables or default to standard backend port
-const API_URL = "http://localhost:8000";
+// Uses relative /api paths with Next.js rewrite proxy or explicit NEXT_PUBLIC_API_URL
+const API_URL = process.env.NEXT_PUBLIC_API_URL !== undefined ? process.env.NEXT_PUBLIC_API_URL : "";
 
 export default function SmartHealthApp() {
   const [mounted, setMounted] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   // Authentication & Session State
   const [user, setUser] = useState<any>(null);
   const [token, setToken] = useState<string>("");
@@ -40,6 +47,40 @@ export default function SmartHealthApp() {
   const [signupEmergencyName, setSignupEmergencyName] = useState("");
   const [signupEmergencyPhone, setSignupEmergencyPhone] = useState("");
   const [signupSuccess, setSignupSuccess] = useState("");
+
+  // Patient Signup - Previous Prescriptions State
+  const [signupPrescriptions, setSignupPrescriptions] = useState<any[]>([]);
+  const [showSignupPrescDrawer, setShowSignupPrescDrawer] = useState(false);
+  const [signupPrescTitle, setSignupPrescTitle] = useState("");
+  const [signupPrescDoctor, setSignupPrescDoctor] = useState("");
+  const [signupPrescDate, setSignupPrescDate] = useState("2024-01-15");
+  const [signupPrescSource, setSignupPrescSource] = useState<"local_storage" | "phone_upload" | "google_drive">("local_storage");
+  const [signupPrescFileName, setSignupPrescFileName] = useState("");
+  const [signupPrescFileType, setSignupPrescFileType] = useState("");
+  const [signupPrescFileData, setSignupPrescFileData] = useState("");
+  const [signupPrescDriveLink, setSignupPrescDriveLink] = useState("");
+  const [signupPrescNotes, setSignupPrescNotes] = useState("");
+  const [signupPrescMeds, setSignupPrescMeds] = useState("");
+
+  // Patient Portal - Upload Previous Prescription State
+  const [showUploadPrescModal, setShowUploadPrescModal] = useState(false);
+  const [portalPrescTitle, setPortalPrescTitle] = useState("");
+  const [portalPrescDoctor, setPortalPrescDoctor] = useState("");
+  const [portalPrescDate, setPortalPrescDate] = useState(new Date().toISOString().split("T")[0]);
+  const [portalPrescSource, setPortalPrescSource] = useState<"local_storage" | "phone_upload" | "google_drive">("local_storage");
+  const [portalPrescFileName, setPortalPrescFileName] = useState("");
+  const [portalPrescFileType, setPortalPrescFileType] = useState("");
+  const [portalPrescFileData, setPortalPrescFileData] = useState("");
+  const [portalPrescDriveLink, setPortalPrescDriveLink] = useState("");
+  const [portalPrescNotes, setPortalPrescNotes] = useState("");
+  const [portalPrescMeds, setPortalPrescMeds] = useState("");
+  const [uploadingPresc, setUploadingPresc] = useState(false);
+  const [uploadPrescSuccess, setUploadPrescSuccess] = useState("");
+  const [uploadPrescError, setUploadPrescError] = useState("");
+
+  // Universal Prescription Preview Modal & Toast
+  const [viewingPrescription, setViewingPrescription] = useState<any>(null);
+  const [copiedMedToast, setCopiedMedToast] = useState("");
 
   // Doctor National Medical Register (NMR) Authentication State
   const [doctorNmrId, setDoctorNmrId] = useState("NMR-2024-883921");
@@ -77,8 +118,98 @@ export default function SmartHealthApp() {
       setSignupPassword("");
       setSignupNmrId(`NMR-2024-${Math.floor(100000 + Math.random() * 900000)}`);
       setSignupLicense(`LIC-${Math.floor(100000 + Math.random() * 900000)}`);
+      setSignupPrescriptions([]);
+      setShowSignupPrescDrawer(false);
     }
     setViewMode("auth");
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
+
+  // Helper to handle file selection from phone camera/gallery or local storage
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, target: "signup" | "portal", sourceMode: "phone_upload" | "local_storage") => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const fileName = file.name;
+    const fileType = file.type || (file.name.endsWith(".pdf") ? "application/pdf" : "image/jpeg");
+
+    const reader = new FileReader();
+    reader.onload = (loadEvt) => {
+      const base64Data = loadEvt.target?.result as string;
+      if (target === "signup") {
+        setSignupPrescFileName(fileName);
+        setSignupPrescFileType(fileType);
+        setSignupPrescFileData(base64Data);
+        setSignupPrescSource(sourceMode);
+        if (!signupPrescTitle) {
+          setSignupPrescTitle(fileName.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " "));
+        }
+      } else {
+        setPortalPrescFileName(fileName);
+        setPortalPrescFileType(fileType);
+        setPortalPrescFileData(base64Data);
+        setPortalPrescSource(sourceMode);
+        if (!portalPrescTitle) {
+          setPortalPrescTitle(fileName.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " "));
+        }
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Helper for Google Drive links
+  const handleDriveLinkChange = (link: string, target: "signup" | "portal") => {
+    if (target === "signup") {
+      setSignupPrescDriveLink(link);
+      setSignupPrescFileData(link);
+      setSignupPrescFileType("link");
+      setSignupPrescSource("google_drive");
+      setSignupPrescFileName("google_drive_document.pdf");
+    } else {
+      setPortalPrescDriveLink(link);
+      setPortalPrescFileData(link);
+      setPortalPrescFileType("link");
+      setPortalPrescSource("google_drive");
+      setPortalPrescFileName("google_drive_document.pdf");
+    }
+  };
+
+  // Add prescription to pending signup list
+  const addSignupPrescription = () => {
+    if (!signupPrescTitle.trim()) {
+      alert("Please provide a title or description for the prescription (e.g. Cardiology Rx).");
+      return;
+    }
+    const newRx = {
+      title: signupPrescTitle.trim(),
+      doctor_name: signupPrescDoctor.trim() || null,
+      prescription_date: signupPrescDate || new Date().toISOString().split("T")[0],
+      source: signupPrescSource,
+      file_name: signupPrescFileName || (signupPrescSource === "google_drive" ? "google_drive_rx.pdf" : "prescription_doc.jpg"),
+      file_type: signupPrescFileType || (signupPrescSource === "google_drive" ? "link" : "image/jpeg"),
+      file_data: signupPrescFileData || null,
+      notes: signupPrescNotes.trim() || null,
+      medications_summary: signupPrescMeds.trim() || null
+    };
+    setSignupPrescriptions(prev => [...prev, newRx]);
+    // Reset inputs
+    setSignupPrescTitle("");
+    setSignupPrescDoctor("");
+    setSignupPrescDate("2024-01-15");
+    setSignupPrescSource("local_storage");
+    setSignupPrescFileName("");
+    setSignupPrescFileType("");
+    setSignupPrescFileData("");
+    setSignupPrescDriveLink("");
+    setSignupPrescNotes("");
+    setSignupPrescMeds("");
+    setShowSignupPrescDrawer(false);
+  };
+
+  const removeSignupPrescription = (idx: number) => {
+    setSignupPrescriptions(prev => prev.filter((_, i) => i !== idx));
   };
 
   // Handle direct persona registration
@@ -128,7 +259,8 @@ export default function SmartHealthApp() {
             email: signupEmail,
             password: signupPassword,
             role: "patient"
-          }
+          },
+          previous_prescriptions: signupPrescriptions
         };
         const res = await fetch(`${API_URL}/api/auth/register/patient`, {
           method: "POST",
@@ -140,10 +272,12 @@ export default function SmartHealthApp() {
           throw new Error(err.detail || "Patient registration failed.");
         }
         const data = await res.json();
-        setSignupSuccess(`Patient Profile Created! Health ID: ${data.health_id}. You can now Sign In.`);
+        const rxMsg = signupPrescriptions.length > 0 ? ` with ${signupPrescriptions.length} historical prescription(s) attached` : "";
+        setSignupSuccess(`Patient Profile Created${rxMsg}! Health ID: ${data.health_id}. You can now Sign In.`);
         setAuthMode("login");
         setLoginUsername(signupUsername);
         setLoginPassword(signupPassword);
+        setSignupPrescriptions([]);
       } else {
         throw new Error("Hospital System Administrator accounts are provisioned by the backend server.");
       }
@@ -157,6 +291,8 @@ export default function SmartHealthApp() {
   // Patients Portal State
   const [patientProfile, setPatientProfile] = useState<any>(null);
   const [qrToken, setQrToken] = useState<any>(null);
+  const [qrCopied, setQrCopied] = useState(false);
+  const [qrHostMode, setQrHostMode] = useState<"global" | "lan">("global");
   const [availableDoctors, setAvailableDoctors] = useState<any[]>([]);
   const [grantDoctorId, setGrantDoctorId] = useState("");
   const [grantHours, setGrantHours] = useState("2");
@@ -220,6 +356,189 @@ export default function SmartHealthApp() {
   const [labTestName, setLabTestName] = useState("");
   const [labSummary, setLabSummary] = useState("");
 
+  // Digital Notepad / Smart Pen State
+  const [handwrittenPrescription, setHandwrittenPrescription] = useState<string>("");
+  const [showDigitalNotepad, setShowDigitalNotepad] = useState<boolean>(false);
+  const [penColor, setPenColor] = useState<string>("#1e3a8a");
+  const [penSize, setPenSize] = useState<number>(3);
+  const [isEraser, setIsEraser] = useState<boolean>(false);
+  const [canvasHistory, setCanvasHistory] = useState<string[]>([]);
+  const [viewingHandwrittenRxModal, setViewingHandwrittenRxModal] = useState<string | null>(null);
+
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const isDrawingRef = useRef<boolean>(false);
+  const lastPointRef = useRef<{ x: number; y: number } | null>(null);
+
+  // Digital Canvas Notepad Functions
+  const initCanvas = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    canvas.width = 650;
+    canvas.height = 380;
+
+    // Background sheet
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Light ruled lines
+    ctx.strokeStyle = "#e2e8f0";
+    ctx.lineWidth = 1;
+    for (let y = 80; y < canvas.height - 35; y += 26) {
+      ctx.beginPath();
+      ctx.moveTo(25, y);
+      ctx.lineTo(canvas.width - 25, y);
+      ctx.stroke();
+    }
+
+    // Top Header Banner
+    ctx.fillStyle = "#0f172a";
+    ctx.fillRect(0, 0, canvas.width, 50);
+
+    ctx.fillStyle = "#38bdf8";
+    ctx.font = "bold 13px sans-serif";
+    ctx.fillText("TRINAYORA — DIGITAL SMART PEN RX NOTEPAD", 20, 22);
+
+    ctx.font = "10px sans-serif";
+    ctx.fillStyle = "#94a3b8";
+    const docInfo = user?.username ? `Dr. ${user.username} (NMR Validated)` : "Licensed Practitioner";
+    const patInfo = scannedPatient?.patient?.health_id ? `Patient: ${scannedPatient.patient.health_id}` : "";
+    const dateStr = new Date().toLocaleDateString();
+    ctx.fillText(`${docInfo}  |  ${patInfo}  |  Date: ${dateStr}`, 20, 38);
+
+    // Rx Symbol
+    ctx.fillStyle = "#1e3a8a";
+    ctx.font = "bold 32px serif";
+    ctx.fillText("℞", 25, 95);
+
+    // Doctor Signature Line
+    ctx.strokeStyle = "#94a3b8";
+    ctx.beginPath();
+    ctx.moveTo(canvas.width - 210, canvas.height - 25);
+    ctx.lineTo(canvas.width - 25, canvas.height - 25);
+    ctx.stroke();
+
+    ctx.fillStyle = "#64748b";
+    ctx.font = "italic 9px sans-serif";
+    ctx.fillText("Doctor Digital / Smart Pen Signature", canvas.width - 200, canvas.height - 10);
+
+    setCanvasHistory([canvas.toDataURL()]);
+  };
+
+  useEffect(() => {
+    if (showDigitalNotepad) {
+      const timer = setTimeout(() => {
+        initCanvas();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [showDigitalNotepad]);
+
+  const saveCanvasHistory = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    setCanvasHistory(prev => [...prev.slice(-15), canvas.toDataURL()]);
+  };
+
+  const undoCanvas = () => {
+    if (canvasHistory.length <= 1) {
+      initCanvas();
+      return;
+    }
+    const previous = canvasHistory[canvasHistory.length - 2];
+    setCanvasHistory(prev => prev.slice(0, -1));
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    const img = new Image();
+    img.onload = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0);
+    };
+    img.src = previous;
+  };
+
+  const getCanvasCoords = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return { x: 0, y: 0, pressure: 0.5 };
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+
+    let pressure = 0.5;
+    if (e.pressure > 0) {
+      pressure = e.pressure;
+    }
+
+    return {
+      x: (e.clientX - rect.left) * scaleX,
+      y: (e.clientY - rect.top) * scaleY,
+      pressure
+    };
+  };
+
+  const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
+    try {
+      (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    } catch (err) {}
+    saveCanvasHistory();
+    isDrawingRef.current = true;
+    const coords = getCanvasCoords(e);
+    lastPointRef.current = { x: coords.x, y: coords.y };
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (!isDrawingRef.current || !lastPointRef.current) return;
+    e.preventDefault();
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const coords = getCanvasCoords(e);
+
+    ctx.beginPath();
+    ctx.moveTo(lastPointRef.current.x, lastPointRef.current.y);
+    ctx.lineTo(coords.x, coords.y);
+
+    if (isEraser) {
+      ctx.strokeStyle = "#ffffff";
+      ctx.lineWidth = penSize * 5;
+    } else {
+      ctx.strokeStyle = penColor;
+      ctx.lineWidth = coords.pressure ? penSize * (0.6 + coords.pressure * 0.8) : penSize;
+    }
+
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.stroke();
+
+    lastPointRef.current = { x: coords.x, y: coords.y };
+  };
+
+  const handlePointerUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (isDrawingRef.current) {
+      isDrawingRef.current = false;
+      lastPointRef.current = null;
+      try {
+        (e.target as HTMLElement).releasePointerCapture(e.pointerId);
+      } catch (err) {}
+    }
+  };
+
+  const handleAttachNotepad = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const dataUrl = canvas.toDataURL("image/png");
+    setHandwrittenPrescription(dataUrl);
+    setCopiedMedToast("Attached Digital Handwritten Rx to Consultation!");
+    setTimeout(() => setCopiedMedToast(""), 3000);
+  };
+
   // AI Summary State
   const [aiSummary, setAiSummary] = useState("");
   const [generatingAi, setGeneratingAi] = useState(false);
@@ -227,12 +546,26 @@ export default function SmartHealthApp() {
   // Initialize
   useEffect(() => {
     setMounted(true);
-    // Check if token exists in localStorage
-    const savedToken = localStorage.getItem("token");
-    const savedUser = localStorage.getItem("user");
-    if (savedToken && savedUser) {
-      setToken(savedToken);
-      setUser(JSON.parse(savedUser));
+    // Safely check if valid session token and user exist in localStorage
+    try {
+      const savedToken = localStorage.getItem("token");
+      const savedUser = localStorage.getItem("user");
+      if (savedToken && savedUser && savedUser !== "undefined" && savedUser !== "null") {
+        const parsed = JSON.parse(savedUser);
+        if (parsed && typeof parsed === "object") {
+          setToken(savedToken);
+          setUser(parsed);
+        } else {
+          localStorage.removeItem("user");
+          localStorage.removeItem("token");
+        }
+      }
+    } catch (e) {
+      console.warn("Cleared corrupted local session state:", e);
+      try {
+        localStorage.removeItem("user");
+        localStorage.removeItem("token");
+      } catch (err) {}
     }
   }, []);
 
@@ -480,6 +813,99 @@ export default function SmartHealthApp() {
     } catch (err) {
       console.error(err);
     }
+  };
+
+  // Upload Previous Prescription from Patient Portal
+  const handleUploadPatientPrescription = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!portalPrescTitle.trim()) {
+      setUploadPrescError("Please enter a prescription title.");
+      return;
+    }
+    setUploadingPresc(true);
+    setUploadPrescError("");
+    setUploadPrescSuccess("");
+    try {
+      const payload = {
+        title: portalPrescTitle.trim(),
+        doctor_name: portalPrescDoctor.trim() || null,
+        prescription_date: portalPrescDate || new Date().toISOString().split("T")[0],
+        source: portalPrescSource,
+        file_name: portalPrescFileName || (portalPrescSource === "google_drive" ? "google_drive_document.pdf" : "prescription_upload.jpg"),
+        file_type: portalPrescFileType || (portalPrescSource === "google_drive" ? "link" : "image/jpeg"),
+        file_data: portalPrescFileData || null,
+        notes: portalPrescNotes.trim() || null,
+        medications_summary: portalPrescMeds.trim() || null
+      };
+
+      const res = await fetch(`${API_URL}/api/patients/me/prescriptions`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail || "Failed to upload prescription.");
+      }
+
+      setUploadPrescSuccess("Previous prescription uploaded successfully!");
+      await fetchPatientOwnProfile();
+      
+      // Reset form
+      setPortalPrescTitle("");
+      setPortalPrescDoctor("");
+      setPortalPrescDate(new Date().toISOString().split("T")[0]);
+      setPortalPrescSource("local_storage");
+      setPortalPrescFileName("");
+      setPortalPrescFileType("");
+      setPortalPrescFileData("");
+      setPortalPrescDriveLink("");
+      setPortalPrescNotes("");
+      setPortalPrescMeds("");
+      
+      setTimeout(() => {
+        setShowUploadPrescModal(false);
+        setUploadPrescSuccess("");
+      }, 1200);
+    } catch (err: any) {
+      setUploadPrescError(err.message || "Upload failed.");
+    } finally {
+      setUploadingPresc(false);
+    }
+  };
+
+  // Delete Previous Prescription from Patient Portal
+  const handleDeletePatientPrescription = async (prescId: number) => {
+    if (!confirm("Are you sure you want to delete this previous prescription record?")) return;
+    try {
+      const res = await fetch(`${API_URL}/api/patients/me/prescriptions/${prescId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!res.ok) {
+        throw new Error("Failed to delete prescription.");
+      }
+      await fetchPatientOwnProfile();
+    } catch (err: any) {
+      alert(err.message || "Failed to delete prescription.");
+    }
+  };
+
+  // Doctor Action: Import previous prescription details into the active consultation form
+  const importPrescriptionToConsultation = (presc: any) => {
+    if (presc.notes) {
+      setNotes(prev => prev ? `${prev}\n[Prior Rx Notes (${presc.doctor_name || "Doctor"})]: ${presc.notes}` : `[Prior Rx Notes (${presc.doctor_name || "Doctor"})]: ${presc.notes}`);
+    }
+    if (presc.medications_summary) {
+      setPrescInstructions(prev => prev ? `${prev}\nContinuing Prior Meds: ${presc.medications_summary}` : `Continuing Prior Meds: ${presc.medications_summary}`);
+    }
+    setActiveTab("add_record");
+    setCopiedMedToast(`Imported "${presc.title}" into Consultation form!`);
+    setTimeout(() => setCopiedMedToast(""), 3500);
   };
 
   // Fetch Hospitals & Doctors (for listings)
@@ -754,6 +1180,22 @@ export default function SmartHealthApp() {
     }
   };
 
+  // Helper to extract clean token from either raw token or scannable URL
+  const cleanExtractToken = (raw: string) => {
+    if (!raw) return "";
+    let clean = raw.trim();
+    if (clean.includes("token=")) {
+      try {
+        const urlObj = new URL(clean.startsWith("http") ? clean : `http://localhost/${clean}`);
+        return urlObj.searchParams.get("token") || clean;
+      } catch (e) {
+        const match = clean.match(/[?&]token=([^&]+)/);
+        if (match) return decodeURIComponent(match[1]);
+      }
+    }
+    return clean;
+  };
+
   // DOCTOR QR Scan simulation
   const simulateQrScan = async () => {
     setSearchError("");
@@ -762,6 +1204,8 @@ export default function SmartHealthApp() {
     setIsEmergencyView(false);
     setAiSummary("");
 
+    const targetToken = cleanExtractToken(simQrToken);
+
     try {
       const res = await fetch(`${API_URL}/api/qr/scan`, {
         method: "POST",
@@ -769,7 +1213,7 @@ export default function SmartHealthApp() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify({ token: simQrToken })
+        body: JSON.stringify({ token: targetToken })
       });
       if (res.ok) {
         const data = await res.json();
@@ -797,6 +1241,7 @@ export default function SmartHealthApp() {
       patient_id: scannedPatient.patient.id,
       symptoms: symptoms,
       notes: notes,
+      handwritten_prescription: handwrittenPrescription || null,
       diagnoses: diagCode && diagDesc ? [{ code: diagCode, description: diagDesc, severity: diagSeverity }] : [],
       prescriptions: filteredMeds.length > 0 || prescInstructions ? [{
         instructions: prescInstructions,
@@ -824,6 +1269,8 @@ export default function SmartHealthApp() {
         // Clear inputs
         setSymptoms("");
         setNotes("");
+        setHandwrittenPrescription("");
+        setShowDigitalNotepad(false);
         setDiagCode("");
         setDiagDesc("");
         setPrescInstructions("");
@@ -918,7 +1365,8 @@ RECOMMENDATION: Patient requires regular blood pressure monitoring. No contraind
         scanner.render(async (decodedText) => {
           // Scanned successfully
           stopCameraScanner();
-          setSimQrToken(decodedText);
+          const targetToken = cleanExtractToken(decodedText);
+          setSimQrToken(targetToken);
           
           // Execute token scan API
           try {
@@ -928,7 +1376,7 @@ RECOMMENDATION: Patient requires regular blood pressure monitoring. No contraind
                 "Content-Type": "application/json",
                 Authorization: `Bearer ${token}`
               },
-              body: JSON.stringify({ token: decodedText })
+              body: JSON.stringify({ token: targetToken })
             });
             if (res.ok) {
               const data = await res.json();
@@ -964,15 +1412,6 @@ RECOMMENDATION: Patient requires regular blood pressure monitoring. No contraind
     }
     setCameraScanActive(false);
   };
-
-  if (!mounted) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-[#0b0f19] text-slate-600 font-mono text-xs">
-        Initializing TRINAYORA Workspace...
-      </div>
-    );
-  }
-
   const isHome = viewMode === "home";
 
   return (
@@ -993,7 +1432,7 @@ RECOMMENDATION: Patient requires regular blood pressure monitoring. No contraind
       )}
 
       {/* Top Navbar */}
-      <header className={`sticky top-0 z-50 px-6 py-4 flex items-center justify-between transition-colors duration-300 ${
+      <header className={`sticky top-0 z-50 px-4 sm:px-6 py-3.5 flex items-center justify-between transition-colors duration-300 ${
         isHome 
           ? "glass-stitch border-b border-slate-200/90 shadow-sm" 
           : "glass-stitch-dark border-b border-white/10 shadow-2xl"
@@ -1011,7 +1450,7 @@ RECOMMENDATION: Patient requires regular blood pressure monitoring. No contraind
               }`}>
                 TRINAYORA
               </h1>
-              <span className={`px-2 py-0.5 rounded-full text-[9px] font-mono font-bold ${
+              <span className={`hidden sm:inline-block px-2 py-0.5 rounded-full text-[9px] font-mono font-bold ${
                 isHome 
                   ? "bg-sky-100 text-sky-700 border border-sky-300" 
                   : "bg-cyan-500/10 text-cyan-300 border border-cyan-500/30"
@@ -1019,7 +1458,7 @@ RECOMMENDATION: Patient requires regular blood pressure monitoring. No contraind
                 3D CLINICAL OS
               </span>
             </div>
-            <p className={`text-[10px] font-mono tracking-wider uppercase ${isHome ? "text-slate-500" : "text-slate-400"}`}>
+            <p className={`text-[10px] font-mono tracking-wider uppercase hidden sm:block ${isHome ? "text-slate-500" : "text-slate-400"}`}>
               RFID + Dynamic Single-Use QR Medical Network
             </p>
           </div>
@@ -1030,14 +1469,21 @@ RECOMMENDATION: Patient requires regular blood pressure monitoring. No contraind
           <button onClick={() => openAuthForRole("doctor", "login")} className={`transition-colors ${isHome ? "hover:text-blue-600" : "hover:text-cyan-400"}`}>Clinicians (NMR)</button>
           <button onClick={() => openAuthForRole("patient", "login")} className={`transition-colors ${isHome ? "hover:text-emerald-600" : "hover:text-emerald-400"}`}>Patients</button>
           <button onClick={() => openAuthForRole("system_admin", "login")} className={`transition-colors ${isHome ? "hover:text-sky-600" : "hover:text-blue-400"}`}>Hospital Admin</button>
+          <Link href="/scan" className="text-rose-600 dark:text-rose-400 font-bold flex items-center gap-1 hover:underline">
+            <QrCode className="h-3.5 w-3.5" />
+            <span>Emergency Scan</span>
+          </Link>
+          <Link href="/contact" className={`transition-colors ${isHome ? "hover:text-sky-600" : "hover:text-cyan-400"}`}>
+            Contact
+          </Link>
         </nav>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
           {!user ? (
             <div className="flex items-center gap-2">
               <button 
                 onClick={() => openAuthForRole("doctor", "login")}
-                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                className={`hidden sm:inline-block px-4 py-2 rounded-xl text-xs font-bold transition-all ${
                   isHome 
                     ? "bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 shadow-sm" 
                     : "bg-slate-800/80 hover:bg-slate-700 text-slate-200 border border-white/10"
@@ -1047,7 +1493,7 @@ RECOMMENDATION: Patient requires regular blood pressure monitoring. No contraind
               </button>
               <button 
                 onClick={() => openAuthForRole("patient", "signup")}
-                className="px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white text-xs font-bold shadow-lg shadow-cyan-500/20 transition-all flex items-center gap-1.5"
+                className="px-3.5 sm:px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white text-xs font-bold shadow-lg shadow-cyan-500/20 transition-all flex items-center gap-1.5"
               >
                 <span>Get Health ID</span>
                 <ArrowRight className="h-3.5 w-3.5" />
@@ -1065,7 +1511,7 @@ RECOMMENDATION: Patient requires regular blood pressure monitoring. No contraind
               >
                 {viewMode === "home" ? "Open Dashboard" : "View 3D Showcase"}
               </button>
-              <div className="text-right">
+              <div className="text-right hidden sm:block">
                 <span className={`text-xs font-bold block ${isHome ? "text-slate-800" : "text-white"}`}>{user?.username?.toUpperCase()}</span>
                 <span className="text-[9px] font-mono text-cyan-400 capitalize px-2 py-0.5 bg-cyan-950/60 rounded-full border border-cyan-800/40">
                   {user?.role?.replace("_", " ")}
@@ -1079,8 +1525,70 @@ RECOMMENDATION: Patient requires regular blood pressure monitoring. No contraind
               </button>
             </div>
           )}
+
+          {/* Mobile Menu Hamburger Toggle */}
+          <button
+            type="button"
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className={`md:hidden p-2 rounded-xl transition-colors ${
+              isHome 
+                ? "bg-white border border-slate-300 text-slate-800 hover:bg-slate-100" 
+                : "bg-slate-800 border border-white/10 text-slate-200 hover:bg-slate-700"
+            }`}
+            aria-label="Toggle Navigation Menu"
+          >
+            {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
         </div>
       </header>
+
+      {/* Mobile Menu Dropdown Drawer */}
+      {mobileMenuOpen && (
+        <div className={`md:hidden fixed top-16 left-0 right-0 z-40 p-5 shadow-2xl transition-colors border-b ${
+          isHome ? "bg-white/95 backdrop-blur-xl border-slate-200 text-slate-900" : "bg-slate-950/95 backdrop-blur-xl border-white/10 text-white"
+        }`}>
+          <div className="space-y-3 text-xs">
+            <button 
+              onClick={() => { setViewMode("home"); setMobileMenuOpen(false); }}
+              className="w-full text-left p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 font-semibold"
+            >
+              Overview & 3D Cards
+            </button>
+            <button 
+              onClick={() => { openAuthForRole("doctor", "login"); setMobileMenuOpen(false); }}
+              className="w-full text-left p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 font-semibold text-blue-600 dark:text-blue-400"
+            >
+              Clinician Portal (NMR ID)
+            </button>
+            <button 
+              onClick={() => { openAuthForRole("patient", "login"); setMobileMenuOpen(false); }}
+              className="w-full text-left p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 font-semibold text-emerald-600 dark:text-emerald-400"
+            >
+              Patient Health ID Portal
+            </button>
+            <button 
+              onClick={() => { openAuthForRole("system_admin", "login"); setMobileMenuOpen(false); }}
+              className="w-full text-left p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 font-semibold"
+            >
+              Hospital Network Administrator
+            </button>
+            <Link 
+              href="/scan" 
+              onClick={() => setMobileMenuOpen(false)}
+              className="w-full block p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 font-bold border border-rose-200 dark:border-rose-900/50"
+            >
+              🚨 Emergency QR Scanner
+            </Link>
+            <div className="pt-2 border-t border-slate-200 dark:border-white/10 grid grid-cols-2 gap-2 text-[11px] text-slate-500">
+              <Link href="/privacy" onClick={() => setMobileMenuOpen(false)} className="hover:underline">Privacy Policy</Link>
+              <Link href="/terms" onClick={() => setMobileMenuOpen(false)} className="hover:underline">Terms of Service</Link>
+              <Link href="/cookies" onClick={() => setMobileMenuOpen(false)} className="hover:underline">Cookie Policy</Link>
+              <Link href="/contact" onClick={() => setMobileMenuOpen(false)} className="hover:underline">Contact Support</Link>
+            </div>
+          </div>
+        </div>
+      )}
+
 
       <main className="flex-1 w-full max-w-7xl mx-auto px-4 py-8 relative z-10">
         
@@ -1109,6 +1617,35 @@ RECOMMENDATION: Patient requires regular blood pressure monitoring. No contraind
                   Connect hospital networks, physicians, and patients through contactless RFID and rotating dynamic QR security. 
                   Zero health data stored on the physical card — 100% encrypted, consent-governed backend EHR access.
                 </p>
+
+                {/* PROMINENT ABOVE-THE-FOLD CTA BAR */}
+                <div className="flex flex-wrap items-center justify-center lg:justify-start gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => openAuthForRole("patient", "signup")}
+                    className="px-6 py-3.5 rounded-2xl bg-gradient-to-r from-sky-600 via-blue-600 to-emerald-600 hover:from-sky-500 hover:to-emerald-500 text-white font-bold text-sm shadow-xl shadow-sky-600/30 flex items-center gap-2 transform hover:-translate-y-0.5 transition-all group"
+                  >
+                    <span>Instant Patient Sign Up</span>
+                    <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                  </button>
+
+                  <Link
+                    href="/scan"
+                    className="px-5 py-3.5 rounded-2xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-300 font-bold text-sm shadow-sm flex items-center gap-2 transform hover:-translate-y-0.5 transition-all"
+                  >
+                    <QrCode className="h-4 w-4 text-rose-600 animate-pulse" />
+                    <span>Emergency QR / RFID Scan</span>
+                  </Link>
+
+                  <button
+                    type="button"
+                    onClick={() => openAuthForRole("doctor", "login")}
+                    className="px-4 py-3.5 rounded-2xl bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 font-semibold text-xs shadow-sm flex items-center gap-1.5 transition-all"
+                  >
+                    <Stethoscope className="h-4 w-4 text-sky-600" />
+                    <span>Doctor NMR Portal</span>
+                  </button>
+                </div>
 
                 {/* Persona Sign-up / Login Switcher Card */}
                 <div className="glass-stitch p-6 rounded-3xl space-y-4 border border-slate-200/90 bg-white/90 shadow-lg">
@@ -1398,7 +1935,12 @@ RECOMMENDATION: Patient requires regular blood pressure monitoring. No contraind
                     {/* Dynamic Interactive QR Mock */}
                     <div className="flex items-center gap-5 my-6">
                       <div className="p-2.5 bg-white rounded-2xl shadow-xl shrink-0">
-                        <QRCodeSVG value="TRINAYORA-3D-DEMO-CARD-TOKEN" size={90} />
+                        <QRCodeSVG 
+                          value={`${(typeof window !== "undefined" && window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1" ? window.location.origin : (process.env.NEXT_PUBLIC_APP_URL || "https://scotia-rocks-cincinnati-reason.trycloudflare.com"))}/medical-history/MOCK_QR_TOKEN_123`} 
+                          size={90} 
+                          level="M"
+                          includeMargin={true}
+                        />
                       </div>
                       <div className="space-y-1 font-mono text-xs">
                         <span className="text-[10px] text-sky-400 uppercase tracking-wider block">Cryptographic Card UID</span>
@@ -1946,6 +2488,213 @@ RECOMMENDATION: Patient requires regular blood pressure monitoring. No contraind
                           />
                         </div>
                       </div>
+
+                      {/* ATTACH PREVIOUS PRESCRIPTIONS ACCORDION / DRAWER */}
+                      <div className="pt-2 border-t border-white/10 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1.5">
+                            <FileUp className="h-4 w-4 text-emerald-400" />
+                            <span className="text-xs font-bold text-white">Previous Prescriptions (Optional)</span>
+                            {signupPrescriptions.length > 0 && (
+                              <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold">
+                                {signupPrescriptions.length} attached
+                              </span>
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setShowSignupPrescDrawer(!showSignupPrescDrawer)}
+                            className="text-[11px] font-semibold text-cyan-400 hover:text-cyan-300 flex items-center gap-1 bg-cyan-950/40 px-2.5 py-1 rounded-lg border border-cyan-800/40"
+                          >
+                            <Plus className="h-3 w-3" />
+                            {showSignupPrescDrawer ? "Close Builder" : "+ Attach Prescription"}
+                          </button>
+                        </div>
+                        <p className="text-[10px] text-slate-400">
+                          Upload previous prescriptions from your phone camera/gallery, local storage, or Google Drive so doctors can review your prior medical history.
+                        </p>
+
+                        {/* List of already added prescriptions in signup */}
+                        {signupPrescriptions.length > 0 && (
+                          <div className="space-y-2">
+                            {signupPrescriptions.map((rx, idx) => (
+                              <div key={idx} className="p-2.5 rounded-xl bg-slate-950/80 border border-emerald-500/30 flex items-center justify-between text-xs">
+                                <div className="flex items-center gap-2.5 overflow-hidden">
+                                  <div className="p-1.5 rounded-lg bg-emerald-900/40 text-emerald-400 shrink-0">
+                                    {rx.source === "phone_upload" ? <Smartphone className="h-3.5 w-3.5" /> : rx.source === "google_drive" ? <Cloud className="h-3.5 w-3.5" /> : <HardDrive className="h-3.5 w-3.5" />}
+                                  </div>
+                                  <div className="truncate">
+                                    <div className="font-bold text-slate-200 truncate">{rx.title}</div>
+                                    <div className="text-[10px] text-slate-400 truncate">
+                                      {rx.doctor_name || "Doctor Not Specified"} • {rx.prescription_date}
+                                      {rx.medications_summary && ` • ${rx.medications_summary}`}
+                                    </div>
+                                  </div>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => removeSignupPrescription(idx)}
+                                  className="p-1 text-red-400 hover:text-red-300 hover:bg-red-950/50 rounded shrink-0 ml-2"
+                                  title="Remove"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Prescription Upload Builder Drawer */}
+                        {showSignupPrescDrawer && (
+                          <div className="p-3.5 rounded-2xl bg-slate-950/90 border border-cyan-500/30 space-y-3 shadow-inner">
+                            <div className="flex items-center justify-between pb-1.5 border-b border-white/10">
+                              <span className="text-[11px] font-bold text-cyan-300 flex items-center gap-1.5">
+                                <FolderPlus className="h-3.5 w-3.5" /> Add Historical Prescription
+                              </span>
+                              <span className="text-[9px] text-slate-400">Step 1 of medical record import</span>
+                            </div>
+
+                            {/* Source Selection Tabs */}
+                            <div className="grid grid-cols-3 gap-1.5 bg-slate-900/90 p-1 rounded-xl border border-white/10 text-[10px]">
+                              <button
+                                type="button"
+                                onClick={() => setSignupPrescSource("phone_upload")}
+                                className={`py-1.5 px-1 rounded-lg font-bold flex items-center justify-center gap-1 transition-all ${signupPrescSource === "phone_upload" ? "bg-emerald-600 text-white shadow" : "text-slate-400 hover:text-white"}`}
+                              >
+                                <Smartphone className="h-3 w-3" /> Phone / Camera
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setSignupPrescSource("local_storage")}
+                                className={`py-1.5 px-1 rounded-lg font-bold flex items-center justify-center gap-1 transition-all ${signupPrescSource === "local_storage" ? "bg-blue-600 text-white shadow" : "text-slate-400 hover:text-white"}`}
+                              >
+                                <HardDrive className="h-3 w-3" /> Local Storage
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setSignupPrescSource("google_drive")}
+                                className={`py-1.5 px-1 rounded-lg font-bold flex items-center justify-center gap-1 transition-all ${signupPrescSource === "google_drive" ? "bg-amber-600 text-white shadow" : "text-slate-400 hover:text-white"}`}
+                              >
+                                <Cloud className="h-3 w-3" /> Google Drive
+                              </button>
+                            </div>
+
+                            {/* File Upload Box (Phone / Local Storage) */}
+                            {signupPrescSource !== "google_drive" ? (
+                              <div className="p-3 border border-dashed border-white/20 rounded-xl bg-slate-900/60 text-center space-y-1.5 hover:border-cyan-400/50 transition-colors">
+                                <label className="cursor-pointer block">
+                                  <input
+                                    type="file"
+                                    accept="image/*,application/pdf"
+                                    onChange={(e) => handleFileUpload(e, "signup", signupPrescSource)}
+                                    className="hidden"
+                                  />
+                                  <div className="flex flex-col items-center gap-1">
+                                    <Upload className="h-5 w-5 text-cyan-400" />
+                                    <span className="text-[11px] font-bold text-slate-200">
+                                      {signupPrescFileName ? `Selected: ${signupPrescFileName}` : (signupPrescSource === "phone_upload" ? "Tap to take Photo or choose from Gallery" : "Click or drag document from Local Storage")}
+                                    </span>
+                                    <span className="text-[9px] text-slate-500">Supports JPG, PNG, WEBP, PDF</span>
+                                  </div>
+                                </label>
+                                {signupPrescFileData && signupPrescFileType?.startsWith("image") && (
+                                  <div className="mt-2 relative w-20 h-20 mx-auto rounded-lg overflow-hidden border border-cyan-500/40">
+                                    <img src={signupPrescFileData} alt="Preview" className="w-full h-full object-cover" />
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              /* Google Drive / Cloud Link Input */
+                              <div className="space-y-1.5">
+                                <label className="block text-[10px] text-slate-300 font-semibold flex items-center gap-1">
+                                  <Cloud className="h-3 w-3 text-amber-400" /> Google Drive / Cloud Shareable Link
+                                </label>
+                                <input
+                                  type="url"
+                                  value={signupPrescDriveLink}
+                                  onChange={e => handleDriveLinkChange(e.target.value, "signup")}
+                                  placeholder="https://drive.google.com/file/d/..."
+                                  className="w-full px-3 py-2 rounded-xl bg-slate-900/90 border border-white/15 text-white text-xs placeholder-slate-500"
+                                />
+                              </div>
+                            )}
+
+                            {/* Prescription Details Inputs */}
+                            <div className="grid grid-cols-2 gap-2">
+                              <div>
+                                <label className="block text-[10px] text-slate-300 mb-0.5 font-semibold">Prescription Title / Condition *</label>
+                                <input
+                                  type="text"
+                                  value={signupPrescTitle}
+                                  onChange={e => setSignupPrescTitle(e.target.value)}
+                                  placeholder="e.g. Cardiology Rx, Diabetes Meds"
+                                  className="w-full px-2.5 py-1.5 rounded-xl bg-slate-900/90 border border-white/15 text-white text-xs placeholder-slate-500"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[10px] text-slate-300 mb-0.5">Doctor / Clinic Name</label>
+                                <input
+                                  type="text"
+                                  value={signupPrescDoctor}
+                                  onChange={e => setSignupPrescDoctor(e.target.value)}
+                                  placeholder="e.g. Dr. Anil Sharma"
+                                  className="w-full px-2.5 py-1.5 rounded-xl bg-slate-900/90 border border-white/15 text-white text-xs placeholder-slate-500"
+                                />
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-2">
+                              <div>
+                                <label className="block text-[10px] text-slate-300 mb-0.5">Prescription Date</label>
+                                <input
+                                  type="date"
+                                  value={signupPrescDate}
+                                  onChange={e => setSignupPrescDate(e.target.value)}
+                                  className="w-full px-2.5 py-1.5 rounded-xl bg-slate-900/90 border border-white/15 text-white text-xs"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[10px] text-slate-300 mb-0.5">Medications Summary</label>
+                                <input
+                                  type="text"
+                                  value={signupPrescMeds}
+                                  onChange={e => setSignupPrescMeds(e.target.value)}
+                                  placeholder="e.g. Metformin 500mg, Atorvastatin"
+                                  className="w-full px-2.5 py-1.5 rounded-xl bg-slate-900/90 border border-white/15 text-white text-xs placeholder-slate-500"
+                                />
+                              </div>
+                            </div>
+
+                            <div>
+                              <label className="block text-[10px] text-slate-300 mb-0.5">Clinical Instructions / Notes</label>
+                              <input
+                                type="text"
+                                value={signupPrescNotes}
+                                onChange={e => setSignupPrescNotes(e.target.value)}
+                                placeholder="e.g. Take after meals. Continue for 3 months."
+                                className="w-full px-2.5 py-1.5 rounded-xl bg-slate-900/90 border border-white/15 text-white text-xs placeholder-slate-500"
+                              />
+                            </div>
+
+                            <div className="flex gap-2 pt-1">
+                              <button
+                                type="button"
+                                onClick={addSignupPrescription}
+                                className="flex-1 py-2 rounded-xl bg-gradient-to-r from-cyan-600 to-emerald-600 hover:from-cyan-500 hover:to-emerald-500 text-white font-bold text-xs shadow-md shadow-cyan-500/20 flex items-center justify-center gap-1.5"
+                              >
+                                <Check className="h-3.5 w-3.5" /> Save & Attach to Account
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setShowSignupPrescDrawer(false)}
+                                className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </>
                   )}
 
@@ -1959,9 +2708,19 @@ RECOMMENDATION: Patient requires regular blood pressure monitoring. No contraind
                   <button 
                     type="submit" 
                     disabled={loading} 
-                    className="w-full py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 text-white text-sm font-bold tracking-wide transition-all shadow-lg shadow-emerald-500/20 disabled:opacity-50"
+                    className="w-full py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 text-white text-sm font-bold tracking-wide transition-all shadow-lg shadow-emerald-500/20 disabled:opacity-50 flex items-center justify-center gap-2"
                   >
-                    {loading ? "Registering..." : `Register ${loginRole.toUpperCase()} Profile`}
+                    {loading ? (
+                      <>
+                        <RefreshCw className="h-4 w-4 animate-spin" />
+                        <span>Creating Profile...</span>
+                      </>
+                    ) : (
+                      <>
+                        <BadgeCheck className="h-4 w-4" />
+                        <span>Register {loginRole.toUpperCase()} Profile {signupPrescriptions.length > 0 ? `(${signupPrescriptions.length} Rx Attached)` : ""}</span>
+                      </>
+                    )}
                   </button>
                 </form>
               )}
@@ -2047,35 +2806,133 @@ RECOMMENDATION: Patient requires regular blood pressure monitoring. No contraind
                   </div>
 
                   {/* QR Token display */}
-                  <div className="mt-6 p-4 rounded-2xl bg-slate-950/80 border border-white/10 flex flex-col items-center justify-center gap-3">
+                  <div className="mt-6 p-4 sm:p-5 rounded-2xl bg-slate-950/90 border border-white/10 flex flex-col items-center justify-center gap-3.5 shadow-xl">
                     {(() => {
                       const activeToken = patientProfile.qr_tokens?.find((t: any) => t.status === "active") || (patientProfile.qr_tokens?.length > 0 ? patientProfile.qr_tokens[0] : null);
-                      return activeToken ? (
-                        <>
-                          <div className="bg-white p-2.5 rounded-2xl shadow-xl">
-                            <QRCodeSVG value={activeToken.token} size={130} />
+                      if (!activeToken) {
+                        return (
+                          <div className="text-center py-4">
+                            <QrCode className="h-12 w-12 text-slate-600 mx-auto mb-2" />
+                            <p className="text-xs text-slate-400 mb-3">No active security QR Code token</p>
+                            <button 
+                              onClick={generateNewQR} 
+                              className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-colors shadow-lg shadow-blue-500/30"
+                            >
+                              Generate Security QR Token
+                            </button>
                           </div>
-                          <div className="text-center">
-                            <span className="text-[10px] text-slate-400 block font-mono">Token: {activeToken.token.substring(0, 14)}...</span>
-                            <span className="text-[9px] text-emerald-400 block mt-0.5">
+                        );
+                      }
+
+                      // Determine the best network-accessible Base URL for phone camera QR scanning
+                      const globalUrl = "https://scotia-rocks-cincinnati-reason.trycloudflare.com";
+                      const lanUrl = "http://192.168.31.187:3000";
+                      const liveOrigin = typeof window !== "undefined" && window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1"
+                        ? window.location.origin
+                        : (process.env.NEXT_PUBLIC_APP_URL || globalUrl);
+
+                      const baseUrl = qrHostMode === "global" ? globalUrl : (qrHostMode === "lan" ? lanUrl : liveOrigin);
+                      const scanUrl = `${baseUrl}/medical-history/${encodeURIComponent(activeToken.token)}`;
+
+                      return (
+                        <>
+                          <div className="text-center space-y-1">
+                            <span className="inline-flex items-center gap-1.5 text-[10px] bg-emerald-950/90 border border-emerald-500/40 text-emerald-300 font-mono px-3 py-1 rounded-full font-bold shadow-md">
+                              <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+                              Active Mobile Scannable QR Code
+                            </span>
+                            <p className="text-[11px] text-slate-300 font-medium">
+                              Scan with iPhone Camera, Android Scanner, or Google Lens
+                            </p>
+                          </div>
+
+                          {/* Network Mode Switcher (5G Cellular vs Local Wi-Fi) */}
+                          <div className="grid grid-cols-2 gap-1.5 p-1 bg-slate-950/90 rounded-2xl border border-white/10 w-full max-w-xs text-[11px]">
+                            <button
+                              onClick={() => setQrHostMode("global")}
+                              className={`py-1.5 px-2 rounded-xl font-bold transition-all flex items-center justify-center gap-1 ${
+                                qrHostMode === "global"
+                                  ? "bg-cyan-600 text-white shadow-md shadow-cyan-950"
+                                  : "text-slate-400 hover:text-white"
+                              }`}
+                            >
+                              <span>🌐 5G / Any Mobile</span>
+                            </button>
+                            <button
+                              onClick={() => setQrHostMode("lan")}
+                              className={`py-1.5 px-2 rounded-xl font-bold transition-all flex items-center justify-center gap-1 ${
+                                qrHostMode === "lan"
+                                  ? "bg-cyan-600 text-white shadow-md shadow-cyan-950"
+                                  : "text-slate-400 hover:text-white"
+                              }`}
+                            >
+                              <span>📶 Local Wi-Fi</span>
+                            </button>
+                          </div>
+
+                          {/* High-contrast QR Code Container with guaranteed white quiet zone */}
+                          <div className="p-3 bg-white rounded-2xl shadow-2xl ring-4 ring-cyan-500/20 flex items-center justify-center">
+                            <QRCodeSVG 
+                              value={scanUrl} 
+                              size={160} 
+                              level="Q"
+                              includeMargin={true}
+                            />
+                          </div>
+
+                          <div className="text-center space-y-1.5 w-full max-w-xs">
+                            <div className="p-2 rounded-xl bg-slate-950/90 border border-cyan-500/20 font-mono text-[10px] text-cyan-300 break-all text-left">
+                              <span className="text-[9px] text-slate-500 block uppercase font-bold">
+                                Scannable {qrHostMode === "global" ? "Cloud (5G/4G)" : "Local Wi-Fi"} URL:
+                              </span>
+                              <span>{scanUrl}</span>
+                            </div>
+                            <span className="text-[10px] text-emerald-400 block font-medium">
                               Expires: {new Date(activeToken.expires_at).toLocaleString()}
                             </span>
-                            <span className="inline-block mt-1.5 text-[9px] bg-emerald-950/80 border border-emerald-700/50 text-emerald-300 font-mono px-2.5 py-0.5 rounded-full font-bold">
-                              Dynamic Single-Use Token
-                            </span>
+                            <p className="text-[10px] text-slate-400 bg-slate-900/90 p-2 rounded-xl border border-white/5">
+                              ✨ Displays patient&apos;s <strong>Previous Prescriptions</strong> &amp; <strong>Medications</strong> directly on any mobile device upon single scan.
+                            </p>
+                          </div>
+
+                          {/* Quick Actions for QR */}
+                          <div className="grid grid-cols-2 gap-2 w-full max-w-xs pt-1">
+                            <a
+                              href={scanUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="px-3 py-2 rounded-xl bg-cyan-600/20 hover:bg-cyan-600/30 border border-cyan-500/40 text-cyan-300 text-[11px] font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm"
+                            >
+                              <ExternalLink className="h-3.5 w-3.5" />
+                              <span>Test Mobile View</span>
+                            </a>
+
+                            <button
+                              onClick={() => {
+                                if (typeof window !== "undefined") {
+                                  navigator.clipboard.writeText(scanUrl);
+                                  setQrCopied(true);
+                                  setTimeout(() => setQrCopied(false), 2000);
+                                }
+                              }}
+                              className="px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-white/15 text-slate-200 text-[11px] font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm"
+                            >
+                              {qrCopied ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5 text-slate-400" />}
+                              <span>{qrCopied ? "Link Copied!" : "Copy QR Link"}</span>
+                            </button>
+                          </div>
+
+                          <div className="w-full max-w-xs pt-1 border-t border-white/10 flex justify-between items-center text-[10px] text-slate-500">
+                            <button
+                              onClick={generateNewQR}
+                              className="text-slate-400 hover:text-cyan-400 flex items-center gap-1 transition-colors"
+                            >
+                              <RefreshCw className="h-3 w-3" />
+                              <span>Rotate / New Token</span>
+                            </button>
+                            <span className="font-mono">Single-Use Rotating</span>
                           </div>
                         </>
-                      ) : (
-                        <div className="text-center py-4">
-                          <QrCode className="h-12 w-12 text-slate-600 mx-auto mb-2" />
-                          <p className="text-xs text-slate-400 mb-3">No active security QR Code token</p>
-                          <button 
-                            onClick={generateNewQR} 
-                            className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-colors shadow-lg shadow-blue-500/30"
-                          >
-                            Generate Security QR Token
-                          </button>
-                        </div>
                       );
                     })()}
                   </div>
@@ -2172,24 +3029,38 @@ RECOMMENDATION: Patient requires regular blood pressure monitoring. No contraind
 
                 {/* Medical History Tabs */}
                 <div className="glass-panel-dark rounded-3xl p-6 border border-white/10 shadow-xl">
-                  <div className="flex justify-between items-center mb-6">
-                    <h3 className="font-bold text-white text-lg">My Electronic Health Records (EHR)</h3>
-                    <div className="flex bg-slate-950/80 p-1 rounded-xl border border-white/10">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                    <div>
+                      <h3 className="font-bold text-white text-lg">My Electronic Health Records (EHR)</h3>
+                      <p className="text-xs text-slate-400">All historical clinical visits, uploads & digital records.</p>
+                    </div>
+                    <div className="flex flex-wrap bg-slate-950/80 p-1 rounded-xl border border-white/10 text-xs">
                       <button 
                         onClick={() => setActiveTab("dashboard")} 
-                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${activeTab === "dashboard" ? "bg-blue-600 text-white shadow" : "text-slate-400 hover:text-white"}`}
+                        className={`px-3 py-1.5 rounded-lg font-semibold transition-colors ${activeTab === "dashboard" ? "bg-blue-600 text-white shadow" : "text-slate-400 hover:text-white"}`}
                       >
-                        Records
+                        Doctor Visits ({patientProfile.medical_records?.length || 0})
+                      </button>
+                      <button 
+                        onClick={() => setActiveTab("prescriptions")} 
+                        className={`px-3 py-1.5 rounded-lg font-semibold transition-colors flex items-center gap-1.5 ${activeTab === "prescriptions" ? "bg-emerald-600 text-white shadow" : "text-slate-400 hover:text-white"}`}
+                      >
+                        <FileUp className="h-3.5 w-3.5" />
+                        <span>Previous Prescriptions</span>
+                        <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-emerald-950/90 text-emerald-300 font-bold border border-emerald-500/40">
+                          {patientProfile.previous_prescriptions?.length || 0}
+                        </span>
                       </button>
                       <button 
                         onClick={() => setActiveTab("vaccines")} 
-                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${activeTab === "vaccines" ? "bg-blue-600 text-white shadow" : "text-slate-400 hover:text-white"}`}
+                        className={`px-3 py-1.5 rounded-lg font-semibold transition-colors ${activeTab === "vaccines" ? "bg-blue-600 text-white shadow" : "text-slate-400 hover:text-white"}`}
                       >
                         Vaccines & Surgeries
                       </button>
                     </div>
                   </div>
 
+                  {/* TAB 1: DOCTOR VISITS */}
                   {activeTab === "dashboard" && (
                     <div className="space-y-4">
                       {patientProfile.medical_records.map((rec: any) => (
@@ -2236,6 +3107,32 @@ RECOMMENDATION: Patient requires regular blood pressure monitoring. No contraind
                             </div>
                           )}
 
+                          {rec.handwritten_prescription && (
+                            <div className="p-3.5 rounded-xl bg-purple-950/30 border border-purple-500/30 space-y-2">
+                              <div className="flex items-center justify-between">
+                                <span className="text-[10px] text-purple-300 uppercase font-bold tracking-wider flex items-center gap-1">
+                                  <PenTool className="h-3.5 w-3.5 text-purple-400" /> Digital Handwritten Rx (Smart Pen)
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => setViewingHandwrittenRxModal(rec.handwritten_prescription)}
+                                  className="text-[11px] text-purple-300 hover:text-purple-200 font-bold flex items-center gap-1 underline decoration-purple-400/50"
+                                >
+                                  <Eye className="h-3.5 w-3.5" /> View Full Pad
+                                </button>
+                              </div>
+                              <div 
+                                onClick={() => setViewingHandwrittenRxModal(rec.handwritten_prescription)}
+                                className="w-full h-36 bg-white rounded-lg border border-purple-500/40 overflow-hidden cursor-pointer group relative shadow-md"
+                              >
+                                <img src={rec.handwritten_prescription} alt="Digital Handwritten Rx" className="w-full h-full object-contain p-1 group-hover:scale-105 transition-transform" />
+                                <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-white text-xs font-bold gap-1">
+                                  <Maximize2 className="h-4 w-4 text-purple-300" /> Click to Inspect & Download
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
                           {rec.lab_reports && rec.lab_reports.length > 0 && (
                             <div className="p-3 bg-slate-950/80 border border-white/10 rounded-xl flex items-center justify-between text-xs">
                               <div className="flex items-center gap-2">
@@ -2257,6 +3154,315 @@ RECOMMENDATION: Patient requires regular blood pressure monitoring. No contraind
                           <p className="text-slate-400 text-sm">No medical visits recorded on file yet.</p>
                         </div>
                       )}
+                    </div>
+                  )}
+
+                  {/* TAB 2: PREVIOUS PRESCRIPTIONS */}
+                  {activeTab === "prescriptions" && (
+                    <div className="space-y-6">
+                      
+                      {/* Top Action Bar */}
+                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 p-4 rounded-2xl bg-slate-950/80 border border-emerald-500/30">
+                        <div>
+                          <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                            <Smartphone className="h-4 w-4 text-emerald-400" />
+                            Uploaded Historical Prescriptions
+                          </h4>
+                          <p className="text-xs text-slate-400">
+                            Prescriptions from outside doctors, clinics, phone uploads or Google Drive accessible to authorized practitioners.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowUploadPrescModal(!showUploadPrescModal);
+                            setUploadPrescError("");
+                            setUploadPrescSuccess("");
+                          }}
+                          className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 text-white font-bold text-xs shadow-lg shadow-emerald-500/20 flex items-center gap-1.5 shrink-0"
+                        >
+                          <Plus className="h-4 w-4" />
+                          {showUploadPrescModal ? "Close Uploader" : "Upload Prescription"}
+                        </button>
+                      </div>
+
+                      {/* Modal / Drawer for Uploading Prescription inside Portal */}
+                      {showUploadPrescModal && (
+                        <form onSubmit={handleUploadPatientPrescription} className="p-5 rounded-3xl bg-slate-950/90 border border-emerald-500/40 space-y-4 shadow-2xl">
+                          <div className="flex justify-between items-center pb-2 border-b border-white/10">
+                            <div className="flex items-center gap-2">
+                              <FileUp className="h-5 w-5 text-emerald-400" />
+                              <h4 className="font-bold text-white text-sm">Upload New Prescription Document</h4>
+                            </div>
+                            <span className="text-[10px] text-emerald-300 font-mono">Syncs to Medical History</span>
+                          </div>
+
+                          {/* Source Selection */}
+                          <div className="grid grid-cols-3 gap-2 bg-slate-900/90 p-1.5 rounded-xl border border-white/10 text-xs">
+                            <button
+                              type="button"
+                              onClick={() => setPortalPrescSource("phone_upload")}
+                              className={`py-2 px-2 rounded-lg font-bold flex items-center justify-center gap-1.5 transition-all ${portalPrescSource === "phone_upload" ? "bg-emerald-600 text-white shadow" : "text-slate-400 hover:text-white"}`}
+                            >
+                              <Smartphone className="h-3.5 w-3.5" /> Phone / Camera
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setPortalPrescSource("local_storage")}
+                              className={`py-2 px-2 rounded-lg font-bold flex items-center justify-center gap-1.5 transition-all ${portalPrescSource === "local_storage" ? "bg-blue-600 text-white shadow" : "text-slate-400 hover:text-white"}`}
+                            >
+                              <HardDrive className="h-3.5 w-3.5" /> Local Storage
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setPortalPrescSource("google_drive")}
+                              className={`py-2 px-2 rounded-lg font-bold flex items-center justify-center gap-1.5 transition-all ${portalPrescSource === "google_drive" ? "bg-amber-600 text-white shadow" : "text-slate-400 hover:text-white"}`}
+                            >
+                              <Cloud className="h-3.5 w-3.5" /> Google Drive
+                            </button>
+                          </div>
+
+                          {/* File input / Drive link */}
+                          {portalPrescSource !== "google_drive" ? (
+                            <div className="p-4 border-2 border-dashed border-white/20 rounded-2xl bg-slate-900/60 text-center space-y-2 hover:border-emerald-400/60 transition-colors">
+                              <label className="cursor-pointer block">
+                                <input
+                                  type="file"
+                                  accept="image/*,application/pdf"
+                                  onChange={(e) => handleFileUpload(e, "portal", portalPrescSource)}
+                                  className="hidden"
+                                />
+                                <div className="flex flex-col items-center gap-1.5">
+                                  <Upload className="h-7 w-7 text-emerald-400" />
+                                  <span className="text-xs font-bold text-slate-200">
+                                    {portalPrescFileName ? `Selected: ${portalPrescFileName}` : (portalPrescSource === "phone_upload" ? "Tap to open camera or upload prescription photo" : "Select prescription file from device")}
+                                  </span>
+                                  <span className="text-[10px] text-slate-400">Supports JPG, PNG, WEBP, and PDF documents</span>
+                                </div>
+                              </label>
+                              {portalPrescFileData && portalPrescFileType?.startsWith("image") && (
+                                <div className="mt-2 relative w-28 h-28 mx-auto rounded-xl overflow-hidden border border-emerald-500/50 shadow-lg">
+                                  <img src={portalPrescFileData} alt="Preview" className="w-full h-full object-cover" />
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="space-y-1.5">
+                              <label className="block text-xs text-slate-300 font-semibold flex items-center gap-1.5">
+                                <Cloud className="h-3.5 w-3.5 text-amber-400" /> Google Drive / Cloud Shareable Document URL
+                              </label>
+                              <input
+                                type="url"
+                                required
+                                value={portalPrescDriveLink}
+                                onChange={e => handleDriveLinkChange(e.target.value, "portal")}
+                                placeholder="https://drive.google.com/file/d/..."
+                                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900/90 border border-white/15 text-white text-xs placeholder-slate-500"
+                              />
+                            </div>
+                          )}
+
+                          {/* Metadata Fields */}
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-[11px] text-slate-300 mb-1 font-semibold">Prescription Title / Condition *</label>
+                              <input
+                                type="text"
+                                required
+                                value={portalPrescTitle}
+                                onChange={e => setPortalPrescTitle(e.target.value)}
+                                placeholder="e.g. Cardiology Rx, Asthma Management"
+                                className="w-full px-3 py-2 rounded-xl bg-slate-900/90 border border-white/15 text-white text-xs placeholder-slate-500"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[11px] text-slate-300 mb-1">Prescribing Doctor / Hospital</label>
+                              <input
+                                type="text"
+                                value={portalPrescDoctor}
+                                onChange={e => setPortalPrescDoctor(e.target.value)}
+                                placeholder="e.g. Dr. Anil Sharma (Apollo)"
+                                className="w-full px-3 py-2 rounded-xl bg-slate-900/90 border border-white/15 text-white text-xs placeholder-slate-500"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-[11px] text-slate-300 mb-1">Prescription Date</label>
+                              <input
+                                type="date"
+                                value={portalPrescDate}
+                                onChange={e => setPortalPrescDate(e.target.value)}
+                                className="w-full px-3 py-2 rounded-xl bg-slate-900/90 border border-white/15 text-white text-xs"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[11px] text-slate-300 mb-1">Medications Summary</label>
+                              <input
+                                type="text"
+                                value={portalPrescMeds}
+                                onChange={e => setPortalPrescMeds(e.target.value)}
+                                placeholder="e.g. Metformin 500mg, Atorvastatin 20mg"
+                                className="w-full px-3 py-2 rounded-xl bg-slate-900/90 border border-white/15 text-white text-xs placeholder-slate-500"
+                              />
+                            </div>
+                          </div>
+
+                          <div>
+                            <label className="block text-[11px] text-slate-300 mb-1">Clinical Instructions & Notes</label>
+                            <textarea
+                              value={portalPrescNotes}
+                              onChange={e => setPortalPrescNotes(e.target.value)}
+                              placeholder="e.g. Take 1 tablet after dinner. Avoid dairy within 2 hours."
+                              className="w-full px-3 py-2 rounded-xl bg-slate-900/90 border border-white/15 text-white text-xs placeholder-slate-500 min-h-[60px]"
+                            />
+                          </div>
+
+                          {uploadPrescError && (
+                            <div className="p-2.5 bg-red-950/60 border border-red-800/50 rounded-xl text-red-300 text-xs flex items-center gap-2">
+                              <AlertCircle className="h-4 w-4 shrink-0 text-red-400" />
+                              <span>{uploadPrescError}</span>
+                            </div>
+                          )}
+
+                          {uploadPrescSuccess && (
+                            <div className="p-2.5 bg-emerald-950/60 border border-emerald-800/50 rounded-xl text-emerald-300 text-xs flex items-center gap-2">
+                              <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400" />
+                              <span>{uploadPrescSuccess}</span>
+                            </div>
+                          )}
+
+                          <div className="flex justify-end gap-2 pt-2">
+                            <button
+                              type="button"
+                              onClick={() => setShowUploadPrescModal(false)}
+                              className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              type="submit"
+                              disabled={uploadingPresc}
+                              className="px-5 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 text-white font-bold text-xs shadow-lg shadow-emerald-500/25 flex items-center gap-1.5 disabled:opacity-50"
+                            >
+                              {uploadingPresc ? (
+                                <>
+                                  <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                                  <span>Uploading...</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Check className="h-3.5 w-3.5" />
+                                  <span>Save & Upload Prescription</span>
+                                </>
+                              )}
+                            </button>
+                          </div>
+                        </form>
+                      )}
+
+                      {/* Cards List of Previous Prescriptions */}
+                      <div className="space-y-4">
+                        {(patientProfile.previous_prescriptions || []).map((rx: any) => (
+                          <div key={rx.id} className="p-5 rounded-2xl bg-slate-900/80 border border-white/10 space-y-3.5 shadow-lg hover:border-emerald-500/40 transition-all">
+                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                              <div className="flex items-center gap-3">
+                                <div className={`p-2.5 rounded-xl text-white ${rx.source === "phone_upload" ? "bg-emerald-900/60 border border-emerald-500/40 text-emerald-300" : rx.source === "google_drive" ? "bg-amber-900/60 border border-amber-500/40 text-amber-300" : "bg-blue-900/60 border border-blue-500/40 text-blue-300"}`}>
+                                  {rx.source === "phone_upload" ? <Smartphone className="h-5 w-5" /> : rx.source === "google_drive" ? <Cloud className="h-5 w-5" /> : <HardDrive className="h-5 w-5" />}
+                                </div>
+                                <div>
+                                  <div className="flex items-center gap-2">
+                                    <h4 className="font-bold text-white text-base">{rx.title}</h4>
+                                    <span className={`text-[9px] uppercase px-2 py-0.5 rounded-full font-bold border ${rx.source === "phone_upload" ? "bg-emerald-950/80 border-emerald-600/50 text-emerald-400" : rx.source === "google_drive" ? "bg-amber-950/80 border-amber-600/50 text-amber-400" : "bg-blue-950/80 border-blue-600/50 text-blue-400"}`}>
+                                      {rx.source === "phone_upload" ? "Phone Upload" : rx.source === "google_drive" ? "Google Drive" : "Local Storage"}
+                                    </span>
+                                  </div>
+                                  <p className="text-xs text-slate-400 mt-0.5">
+                                    Prescribed by <strong className="text-slate-200">{rx.doctor_name || "Doctor"}</strong> on {rx.prescription_date}
+                                  </p>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-2 self-end sm:self-auto">
+                                <button
+                                  type="button"
+                                  onClick={() => setViewingPrescription(rx)}
+                                  className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-cyan-300 hover:text-cyan-200 text-xs font-semibold border border-white/10 flex items-center gap-1.5 transition-colors"
+                                >
+                                  <Eye className="h-3.5 w-3.5" /> Inspect
+                                </button>
+                                {rx.source === "google_drive" && rx.file_data && (
+                                  <a
+                                    href={rx.file_data}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="px-3 py-1.5 rounded-xl bg-amber-950/60 hover:bg-amber-900/70 text-amber-300 text-xs font-semibold border border-amber-700/50 flex items-center gap-1.5 transition-colors"
+                                  >
+                                    <ExternalLink className="h-3.5 w-3.5" /> Drive Link
+                                  </a>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeletePatientPrescription(rx.id)}
+                                  className="p-1.5 rounded-xl text-red-400 hover:text-red-300 hover:bg-red-950/50 border border-transparent hover:border-red-800/40 transition-colors"
+                                  title="Delete prescription"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Medications summary pills */}
+                            {rx.medications_summary && (
+                              <div className="p-3 bg-slate-950/80 rounded-xl border border-white/10 space-y-1.5">
+                                <span className="text-[10px] uppercase font-bold tracking-wider text-emerald-400 block">Prescribed Medication Regimen</span>
+                                <p className="text-xs text-slate-200 font-mono font-medium">{rx.medications_summary}</p>
+                              </div>
+                            )}
+
+                            {/* Clinical Notes */}
+                            {rx.notes && (
+                              <div className="text-xs text-slate-300 pl-3 border-l-2 border-emerald-500/50">
+                                <span className="text-[10px] text-slate-400 font-semibold block uppercase">Notes & Instructions</span>
+                                <p className="mt-0.5">{rx.notes}</p>
+                              </div>
+                            )}
+
+                            {/* File / Document Attachment Badge */}
+                            {rx.file_name && (
+                              <div className="flex items-center justify-between text-[11px] text-slate-400 pt-2 border-t border-white/10">
+                                <span className="flex items-center gap-1.5">
+                                  <Paperclip className="h-3.5 w-3.5 text-cyan-400" />
+                                  Attached Document: <span className="text-slate-200 font-mono">{rx.file_name}</span>
+                                </span>
+                                <span className="text-[10px] text-slate-500">
+                                  Added {new Date(rx.created_at).toLocaleDateString()}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+
+                        {(!patientProfile.previous_prescriptions || patientProfile.previous_prescriptions.length === 0) && (
+                          <div className="text-center py-12 border border-dashed border-white/15 rounded-3xl space-y-3">
+                            <Smartphone className="h-12 w-12 text-slate-600 mx-auto" />
+                            <div>
+                              <h4 className="font-bold text-white text-sm">No Previous Prescriptions Uploaded</h4>
+                              <p className="text-xs text-slate-400 max-w-md mx-auto mt-1">
+                                Upload your previous doctor prescriptions or medical records from your phone, device, or Google Drive so your doctors have full context of your medication history.
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setShowUploadPrescModal(true)}
+                              className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition-colors shadow-lg shadow-emerald-500/30 inline-flex items-center gap-1.5"
+                            >
+                              <Plus className="h-4 w-4" /> Upload Your First Prescription
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
 
@@ -2607,21 +3813,32 @@ RECOMMENDATION: Patient requires regular blood pressure monitoring. No contraind
                     {/* Dashboard Tab Panels */}
                     <div className="glass-panel-dark rounded-3xl p-6 border border-white/10 space-y-6 shadow-xl">
                       
-                      <div className="flex bg-slate-950/80 p-1 rounded-xl border border-white/10 w-fit">
+                      <div className="flex flex-wrap bg-slate-950/80 p-1.5 rounded-2xl border border-white/10 gap-1 text-xs">
                         <button 
                           onClick={() => setActiveTab("dashboard")} 
-                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${activeTab === "dashboard" ? "bg-blue-600 text-white shadow" : "text-slate-400 hover:text-white"}`}
+                          className={`px-3.5 py-2 rounded-xl font-semibold transition-colors ${activeTab === "dashboard" ? "bg-blue-600 text-white shadow-md shadow-blue-600/30" : "text-slate-400 hover:text-white"}`}
                         >
-                          Medical Records
+                          Hospital Records ({scannedPatient.medical_records?.length || 0})
+                        </button>
+                        <button 
+                          onClick={() => setActiveTab("doctor_prescriptions")} 
+                          className={`px-3.5 py-2 rounded-xl font-semibold transition-colors flex items-center gap-1.5 ${activeTab === "doctor_prescriptions" ? "bg-emerald-600 text-white shadow-md shadow-emerald-600/30" : "text-slate-400 hover:text-white"}`}
+                        >
+                          <FileUp className="h-3.5 w-3.5" />
+                          <span>Previous Prescriptions</span>
+                          <span className="px-1.5 py-0.2 rounded-full text-[10px] bg-emerald-950 text-emerald-300 font-bold border border-emerald-500/40">
+                            {scannedPatient.previous_prescriptions?.length || 0}
+                          </span>
                         </button>
                         <button 
                           onClick={() => setActiveTab("add_record")} 
-                          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${activeTab === "add_record" ? "bg-blue-600 text-white shadow" : "text-slate-400 hover:text-white"}`}
+                          className={`px-3.5 py-2 rounded-xl font-semibold transition-colors flex items-center gap-1 ${activeTab === "add_record" ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/30" : "text-slate-400 hover:text-white"}`}
                         >
-                          Add Consultation
+                          <Plus className="h-3.5 w-3.5" /> Add Consultation
                         </button>
                       </div>
 
+                      {/* TAB 1: HOSPITAL RECORDS */}
                       {activeTab === "dashboard" && (
                         <div className="space-y-4">
                           {scannedPatient.medical_records.map((rec: any) => (
@@ -2663,6 +3880,32 @@ RECOMMENDATION: Patient requires regular blood pressure monitoring. No contraind
                                 </div>
                               )}
 
+                              {rec.handwritten_prescription && (
+                                <div className="p-3.5 rounded-xl bg-purple-950/30 border border-purple-500/30 space-y-2">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-[10px] text-purple-300 uppercase font-bold tracking-wider flex items-center gap-1">
+                                      <PenTool className="h-3.5 w-3.5 text-purple-400" /> Digital Handwritten Rx (Smart Pen)
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => setViewingHandwrittenRxModal(rec.handwritten_prescription)}
+                                      className="text-[11px] text-purple-300 hover:text-purple-200 font-bold flex items-center gap-1 underline decoration-purple-400/50"
+                                    >
+                                      <Eye className="h-3.5 w-3.5" /> View Full Pad
+                                    </button>
+                                  </div>
+                                  <div 
+                                    onClick={() => setViewingHandwrittenRxModal(rec.handwritten_prescription)}
+                                    className="w-full h-36 bg-white rounded-lg border border-purple-500/40 overflow-hidden cursor-pointer group relative shadow-md"
+                                  >
+                                    <img src={rec.handwritten_prescription} alt="Digital Handwritten Rx" className="w-full h-full object-contain p-1 group-hover:scale-105 transition-transform" />
+                                    <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-white text-xs font-bold gap-1">
+                                      <Maximize2 className="h-4 w-4 text-purple-300" /> Click to Inspect & Download
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+
                               {rec.lab_reports && rec.lab_reports.length > 0 && (
                                 <div className="p-2.5 bg-slate-950/80 rounded-xl flex items-center justify-between text-[11px] border border-white/10">
                                   <span className="text-slate-200">Test: <strong>{rec.lab_reports[0].test_name}</strong></span>
@@ -2673,7 +3916,105 @@ RECOMMENDATION: Patient requires regular blood pressure monitoring. No contraind
                           ))}
 
                           {scannedPatient.medical_records.length === 0 && (
-                            <p className="text-xs text-slate-400 italic py-6 text-center">No history recorded.</p>
+                            <p className="text-xs text-slate-400 italic py-6 text-center">No hospital records on file.</p>
+                          )}
+                        </div>
+                      )}
+
+                      {/* TAB 2: PATIENT'S PREVIOUS PRESCRIPTIONS & UPLOADS */}
+                      {activeTab === "doctor_prescriptions" && (
+                        <div className="space-y-4">
+                          <div className="p-4 rounded-2xl bg-emerald-950/40 border border-emerald-500/30 flex items-start gap-3">
+                            <Smartphone className="h-5 w-5 text-emerald-400 shrink-0 mt-0.5" />
+                            <div>
+                              <h4 className="text-xs font-bold text-emerald-300 uppercase tracking-wider">Patient-Uploaded Historical Prescriptions</h4>
+                              <p className="text-xs text-slate-300 mt-0.5">
+                                Uploaded directly by the patient from their phone, local documents, or Google Drive. You can inspect documents or copy medications directly into your new consultation.
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Cards List */}
+                          {(scannedPatient.previous_prescriptions || []).map((rx: any) => (
+                            <div key={rx.id} className="p-4 rounded-2xl bg-slate-900/80 border border-white/10 space-y-3 shadow-md hover:border-emerald-500/40 transition-all">
+                              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                                <div className="flex items-center gap-3">
+                                  <div className={`p-2 rounded-xl text-white ${rx.source === "phone_upload" ? "bg-emerald-900/60 border border-emerald-500/40 text-emerald-300" : rx.source === "google_drive" ? "bg-amber-900/60 border border-amber-500/40 text-amber-300" : "bg-blue-900/60 border border-blue-500/40 text-blue-300"}`}>
+                                    {rx.source === "phone_upload" ? <Smartphone className="h-4 w-4" /> : rx.source === "google_drive" ? <Cloud className="h-4 w-4" /> : <HardDrive className="h-4 w-4" />}
+                                  </div>
+                                  <div>
+                                    <div className="flex items-center gap-2">
+                                      <h4 className="font-bold text-white text-sm">{rx.title}</h4>
+                                      <span className={`text-[9px] uppercase px-2 py-0.5 rounded-full font-bold border ${rx.source === "phone_upload" ? "bg-emerald-950/80 border-emerald-600/50 text-emerald-400" : rx.source === "google_drive" ? "bg-amber-950/80 border-amber-600/50 text-amber-400" : "bg-blue-950/80 border-blue-600/50 text-blue-400"}`}>
+                                        {rx.source === "phone_upload" ? "Phone Upload" : rx.source === "google_drive" ? "Google Drive" : "Local Storage"}
+                                      </span>
+                                    </div>
+                                    <span className="text-[11px] text-slate-400">
+                                      Prior Doctor: <strong className="text-slate-200">{rx.doctor_name || "Doctor Not Specified"}</strong> • {rx.prescription_date}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center gap-2 self-end sm:self-auto">
+                                  <button
+                                    type="button"
+                                    onClick={() => importPrescriptionToConsultation(rx)}
+                                    className="px-2.5 py-1.5 rounded-xl bg-indigo-950/80 hover:bg-indigo-900 text-indigo-300 hover:text-indigo-200 text-xs font-semibold border border-indigo-700/50 flex items-center gap-1 transition-colors"
+                                    title="Copy medications into active consultation"
+                                  >
+                                    <Copy className="h-3.5 w-3.5" /> Import to Consult
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setViewingPrescription(rx)}
+                                    className="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-cyan-300 hover:text-cyan-200 text-xs font-semibold border border-white/10 flex items-center gap-1 transition-colors"
+                                  >
+                                    <Eye className="h-3.5 w-3.5" /> Inspect
+                                  </button>
+                                  {rx.source === "google_drive" && rx.file_data && (
+                                    <a
+                                      href={rx.file_data}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="px-2.5 py-1.5 rounded-xl bg-amber-950/60 hover:bg-amber-900/70 text-amber-300 text-xs font-semibold border border-amber-700/50 flex items-center gap-1 transition-colors"
+                                    >
+                                      <ExternalLink className="h-3.5 w-3.5" /> Drive Link
+                                    </a>
+                                  )}
+                                </div>
+                              </div>
+
+                              {rx.medications_summary && (
+                                <div className="p-2.5 bg-slate-950/80 rounded-xl border border-white/10 space-y-1">
+                                  <span className="text-[9px] uppercase font-bold tracking-wider text-emerald-400 block">Medications Summary</span>
+                                  <p className="text-xs text-slate-200 font-mono">{rx.medications_summary}</p>
+                                </div>
+                              )}
+
+                              {rx.notes && (
+                                <div className="text-xs text-slate-300 pl-3 border-l-2 border-emerald-500/50">
+                                  <span className="text-[9px] text-slate-400 font-semibold block uppercase">Clinical Notes</span>
+                                  <p>{rx.notes}</p>
+                                </div>
+                              )}
+
+                              {rx.file_name && (
+                                <div className="flex items-center justify-between text-[10px] text-slate-400 pt-1.5 border-t border-white/10">
+                                  <span className="flex items-center gap-1">
+                                    <Paperclip className="h-3 w-3 text-cyan-400" />
+                                    Attached: <strong className="text-slate-300 font-mono">{rx.file_name}</strong>
+                                  </span>
+                                  <span>Uploaded by patient</span>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+
+                          {(!scannedPatient.previous_prescriptions || scannedPatient.previous_prescriptions.length === 0) && (
+                            <div className="text-center py-10 border border-dashed border-white/10 rounded-2xl">
+                              <Smartphone className="h-10 w-10 text-slate-600 mx-auto mb-2" />
+                              <p className="text-xs text-slate-400">Patient has not uploaded any historical prescriptions.</p>
+                            </div>
                           )}
                         </div>
                       )}
@@ -2786,6 +4127,186 @@ RECOMMENDATION: Patient requires regular blood pressure monitoring. No contraind
                                 className="w-full px-3 py-2 rounded-xl bg-slate-950/80 border border-white/10 text-white focus:outline-none text-xs"
                               />
                             </div>
+                          </div>
+
+                          {/* Digital Notepad & Smart Pen Prescription Subsection */}
+                          <div className="p-4 rounded-2xl bg-slate-900/90 border border-purple-500/30 space-y-3 shadow-lg shadow-purple-900/10">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <div className="flex items-center gap-2">
+                                <div className="p-1.5 rounded-lg bg-purple-500/20 text-purple-400 border border-purple-500/30">
+                                  <PenTool className="h-4 w-4" />
+                                </div>
+                                <div>
+                                  <h4 className="text-xs font-bold text-purple-300 uppercase tracking-wider flex items-center gap-1.5">
+                                    Digital Notepad & Smart Pen Rx <Sparkles className="h-3 w-3 text-purple-400" />
+                                  </h4>
+                                  <p className="text-[10px] text-slate-400">Write directly with a smart pen, stylus, or hand finger. (Complements manual text fields)</p>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-2">
+                                {handwrittenPrescription && (
+                                  <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-400 bg-emerald-950/80 px-2.5 py-1 rounded-full border border-emerald-500/40">
+                                    <CheckCircle2 className="h-3.5 w-3.5" /> Rx Attached
+                                  </span>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => setShowDigitalNotepad(!showDigitalNotepad)}
+                                  className="px-3 py-1.5 rounded-xl bg-purple-600/30 hover:bg-purple-600/50 border border-purple-500/40 text-purple-200 text-xs font-bold flex items-center gap-1.5 transition-all"
+                                >
+                                  {showDigitalNotepad ? <X className="h-3.5 w-3.5" /> : <Edit3 className="h-3.5 w-3.5" />}
+                                  {showDigitalNotepad ? "Close Notepad" : handwrittenPrescription ? "Edit Handwritten Rx" : "Open Digital Notepad Pad"}
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Attached Preview Banner */}
+                            {handwrittenPrescription && !showDigitalNotepad && (
+                              <div className="p-3 rounded-xl bg-slate-950/90 border border-purple-500/30 flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-16 h-10 rounded border border-white/20 overflow-hidden bg-white">
+                                    <img src={handwrittenPrescription} alt="Handwritten Rx" className="w-full h-full object-cover" />
+                                  </div>
+                                  <div>
+                                    <span className="text-xs font-semibold text-white block">Digital Handwritten Prescription Attached</span>
+                                    <span className="text-[10px] text-slate-400 block">Will be saved to Cloud EHR along with manual prescription</span>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => setViewingHandwrittenRxModal(handwrittenPrescription)}
+                                    className="p-1.5 rounded-lg bg-slate-800 text-slate-300 hover:text-white"
+                                    title="Preview Fullscreen"
+                                  >
+                                    <Eye className="h-4 w-4" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setHandwrittenPrescription("")}
+                                    className="p-1.5 rounded-lg bg-red-950/50 text-red-400 hover:text-red-300 border border-red-800/40"
+                                    title="Remove Attachment"
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Notepad Interactive Canvas Editor */}
+                            {showDigitalNotepad && (
+                              <div className="space-y-3 pt-2 border-t border-purple-500/20">
+                                {/* Notepad Toolbar */}
+                                <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-xl bg-slate-950/90 border border-white/10 text-xs">
+                                  
+                                  {/* Pen / Eraser Mode */}
+                                  <div className="flex items-center gap-1 bg-slate-900 p-1 rounded-lg border border-white/10">
+                                    <button
+                                      type="button"
+                                      onClick={() => setIsEraser(false)}
+                                      className={`px-2.5 py-1 rounded-md font-semibold flex items-center gap-1 text-[11px] transition-all ${!isEraser ? "bg-purple-600 text-white" : "text-slate-400 hover:text-white"}`}
+                                    >
+                                      <PenTool className="h-3 w-3" /> Pen Mode
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => setIsEraser(true)}
+                                      className={`px-2.5 py-1 rounded-md font-semibold flex items-center gap-1 text-[11px] transition-all ${isEraser ? "bg-rose-600 text-white" : "text-slate-400 hover:text-white"}`}
+                                    >
+                                      <Eraser className="h-3 w-3" /> Eraser
+                                    </button>
+                                  </div>
+
+                                  {/* Color Swatches */}
+                                  {!isEraser && (
+                                    <div className="flex items-center gap-1.5 bg-slate-900 px-2 py-1 rounded-lg border border-white/10">
+                                      <span className="text-[10px] text-slate-400 mr-1 font-mono">Ink:</span>
+                                      {[
+                                        { color: "#1e3a8a", label: "Midnight Blue" },
+                                        { color: "#0f172a", label: "Classic Black" },
+                                        { color: "#0d9488", label: "Medical Teal" },
+                                        { color: "#dc2626", label: "Urgent Red" },
+                                        { color: "#7c3aed", label: "Violet" }
+                                      ].map(c => (
+                                        <button
+                                          key={c.color}
+                                          type="button"
+                                          onClick={() => setPenColor(c.color)}
+                                          style={{ backgroundColor: c.color }}
+                                          className={`w-5 h-5 rounded-full border-2 transition-transform ${penColor === c.color ? "scale-125 border-white shadow" : "border-transparent opacity-80 hover:opacity-100"}`}
+                                          title={c.label}
+                                        />
+                                      ))}
+                                    </div>
+                                  )}
+
+                                  {/* Thickness Selector */}
+                                  <div className="flex items-center gap-1 bg-slate-900 px-2 py-1 rounded-lg border border-white/10">
+                                    <span className="text-[10px] text-slate-400 mr-1 font-mono">Thickness:</span>
+                                    {[2, 3, 5, 8].map(size => (
+                                      <button
+                                        key={size}
+                                        type="button"
+                                        onClick={() => setPenSize(size)}
+                                        className={`px-2 py-0.5 rounded text-[10px] font-mono transition-all ${penSize === size ? "bg-slate-700 text-white font-bold" : "text-slate-400 hover:text-slate-200"}`}
+                                      >
+                                        {size === 2 ? "Fine" : size === 3 ? "Med" : size === 5 ? "Bold" : "Marker"}
+                                      </button>
+                                    ))}
+                                  </div>
+
+                                  {/* Action Tools */}
+                                  <div className="flex items-center gap-1.5">
+                                    <button
+                                      type="button"
+                                      onClick={undoCanvas}
+                                      className="p-1.5 rounded-lg bg-slate-900 border border-white/10 text-slate-300 hover:text-white hover:bg-slate-800"
+                                      title="Undo Stroke"
+                                    >
+                                      <RotateCcw className="h-3.5 w-3.5" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={initCanvas}
+                                      className="px-2.5 py-1 rounded-lg bg-slate-900 border border-white/10 text-rose-400 hover:text-rose-300 hover:bg-slate-800 text-[11px] font-semibold flex items-center gap-1"
+                                    >
+                                      <Trash2 className="h-3 w-3" /> Clear Pad
+                                    </button>
+                                  </div>
+                                </div>
+
+                                {/* Canvas Area Container */}
+                                <div className="relative rounded-2xl overflow-hidden border-2 border-purple-500/40 shadow-inner bg-slate-950 flex justify-center p-2 touch-none">
+                                  <canvas
+                                    ref={canvasRef}
+                                    onPointerDown={handlePointerDown}
+                                    onPointerMove={handlePointerMove}
+                                    onPointerUp={handlePointerUp}
+                                    onPointerCancel={handlePointerUp}
+                                    className="rounded-xl cursor-crosshair max-w-full shadow-2xl touch-none"
+                                    style={{ touchAction: "none" }}
+                                  />
+                                </div>
+
+                                {/* Bottom Notepad Actions */}
+                                <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                                  <span className="text-[10px] text-slate-400 italic">
+                                    * Supports Smart Stylus Pens (Apple Pencil, Surface Pen, S-Pen) with touch pressure sensitivity.
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      handleAttachNotepad();
+                                      setShowDigitalNotepad(false);
+                                    }}
+                                    className="px-4 py-2 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-bold flex items-center gap-2 shadow-lg shadow-purple-500/20 transition-all"
+                                  >
+                                    <CheckCircle2 className="h-4 w-4" /> Save & Attach Handwritten Rx
+                                  </button>
+                                </div>
+                              </div>
+                            )}
                           </div>
 
                           {/* Lab Reports subsection */}
@@ -3238,18 +4759,187 @@ RECOMMENDATION: Patient requires regular blood pressure monitoring. No contraind
           </div>
         )}
 
+        {/* ========================================================================= */}
+        {/* UNIVERSAL PRESCRIPTION INSPECTION / FULL PREVIEW MODAL                    */}
+        {/* ========================================================================= */}
+        {viewingPrescription && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
+            <div className="bg-slate-900 border border-white/20 rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl space-y-5 p-6 relative">
+              
+              {/* Header */}
+              <div className="flex justify-between items-start pb-3 border-b border-white/10">
+                <div className="flex items-center gap-3">
+                  <div className={`p-2.5 rounded-2xl text-white ${viewingPrescription.source === "phone_upload" ? "bg-emerald-900/60 border border-emerald-500/40 text-emerald-300" : viewingPrescription.source === "google_drive" ? "bg-amber-900/60 border border-amber-500/40 text-amber-300" : "bg-blue-900/60 border border-blue-500/40 text-blue-300"}`}>
+                    {viewingPrescription.source === "phone_upload" ? <Smartphone className="h-6 w-6" /> : viewingPrescription.source === "google_drive" ? <Cloud className="h-6 w-6" /> : <HardDrive className="h-6 w-6" />}
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-lg font-bold text-white">{viewingPrescription.title}</h3>
+                      <span className={`text-[10px] uppercase px-2.5 py-0.5 rounded-full font-bold border ${viewingPrescription.source === "phone_upload" ? "bg-emerald-950 border-emerald-600/50 text-emerald-400" : viewingPrescription.source === "google_drive" ? "bg-amber-950 border-amber-600/50 text-amber-400" : "bg-blue-950 border-blue-600/50 text-blue-400"}`}>
+                        {viewingPrescription.source === "phone_upload" ? "Phone Upload" : viewingPrescription.source === "google_drive" ? "Google Drive" : "Local Storage"}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      Doctor: <strong className="text-slate-200">{viewingPrescription.doctor_name || "Doctor Not Specified"}</strong> • Date: {viewingPrescription.prescription_date}
+                    </p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setViewingPrescription(null)}
+                  className="p-2 rounded-full text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 transition-colors"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              {/* Document Image or Cloud Link Viewer */}
+              {viewingPrescription.file_data && viewingPrescription.file_data.startsWith("data:image") ? (
+                <div className="rounded-2xl overflow-hidden border border-white/10 bg-slate-950 flex flex-col items-center justify-center p-2">
+                  <img 
+                    src={viewingPrescription.file_data} 
+                    alt={viewingPrescription.title}
+                    className="max-h-[350px] w-auto object-contain rounded-xl shadow-lg"
+                  />
+                  <span className="text-[10px] text-slate-400 mt-2 font-mono">Original Document Attachment: {viewingPrescription.file_name}</span>
+                </div>
+              ) : viewingPrescription.source === "google_drive" && viewingPrescription.file_data ? (
+                <div className="p-5 rounded-2xl bg-slate-950 border border-amber-500/40 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Cloud className="h-8 w-8 text-amber-400" />
+                    <div>
+                      <h4 className="text-sm font-bold text-white">Google Drive Document</h4>
+                      <p className="text-xs text-slate-400 truncate max-w-sm">{viewingPrescription.file_data}</p>
+                    </div>
+                  </div>
+                  <a 
+                    href={viewingPrescription.file_data} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-lg shadow-amber-600/30"
+                  >
+                    <ExternalLink className="h-4 w-4" /> Open Drive
+                  </a>
+                </div>
+              ) : (
+                <div className="p-4 rounded-2xl bg-slate-950/80 border border-white/10 flex items-center gap-3">
+                  <FileText className="h-8 w-8 text-blue-400" />
+                  <div>
+                    <h4 className="text-xs font-bold text-white">{viewingPrescription.file_name || "Digital Prescription Record"}</h4>
+                    <p className="text-[11px] text-slate-400">Prescription registered in electronic health profile.</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Medication Details */}
+              {viewingPrescription.medications_summary && (
+                <div className="p-4 rounded-2xl bg-slate-950/90 border border-emerald-500/30 space-y-1.5">
+                  <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider block">Medications Summary</span>
+                  <p className="text-sm text-slate-200 font-mono">{viewingPrescription.medications_summary}</p>
+                </div>
+              )}
+
+              {/* Clinical Notes & Instructions */}
+              {viewingPrescription.notes && (
+                <div className="p-4 rounded-2xl bg-slate-950/90 border border-white/10 space-y-1">
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Clinical Notes & Instructions</span>
+                  <p className="text-xs text-slate-200 leading-relaxed">{viewingPrescription.notes}</p>
+                </div>
+              )}
+
+              {/* Footer Actions */}
+              <div className="flex justify-between items-center pt-3 border-t border-white/10">
+                <span className="text-[11px] text-slate-400 font-mono">
+                  Added: {new Date(viewingPrescription.created_at).toLocaleString()}
+                </span>
+                
+                <div className="flex gap-2">
+                  {user?.role === "doctor" && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        importPrescriptionToConsultation(viewingPrescription);
+                        setViewingPrescription(null);
+                      }}
+                      className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold flex items-center gap-1.5 shadow-md shadow-indigo-600/30"
+                    >
+                      <Copy className="h-4 w-4" /> Import to Consultation
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setViewingPrescription(null)}
+                    className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        )}
+
+        {/* HANDWRITTEN RX LIGHTBOX MODAL */}
+        {viewingHandwrittenRxModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md animate-in fade-in duration-200">
+            <div className="relative max-w-4xl w-full bg-slate-900 border border-purple-500/40 rounded-3xl p-6 space-y-4 shadow-2xl">
+              <div className="flex items-center justify-between pb-3 border-b border-white/10">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-xl bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                    <PenTool className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-white">Digital Smart Pen Handwritten Prescription</h3>
+                    <p className="text-xs text-slate-400">TRINAYORA E-Prescription Document</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setViewingHandwrittenRxModal(null)}
+                  className="p-2 rounded-full bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 transition-colors"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              <div className="bg-white rounded-2xl p-2 border border-slate-300 shadow-inner max-h-[70vh] overflow-auto flex justify-center">
+                <img src={viewingHandwrittenRxModal} alt="Handwritten Rx Full" className="max-w-full h-auto object-contain rounded-xl" />
+              </div>
+
+              <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+                <span className="text-xs text-slate-400 italic">
+                  * Verifiable doctor smart pen digital signature on file.
+                </span>
+                <a
+                  href={viewingHandwrittenRxModal}
+                  download={`TRINAYORA_Handwritten_Rx_${Date.now()}.png`}
+                  className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold flex items-center gap-2 shadow-lg shadow-purple-500/20 transition-all"
+                >
+                  <Download className="h-4 w-4" /> Download Prescription Image
+                </a>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* TOAST NOTIFICATION */}
+        {copiedMedToast && (
+          <div className="fixed bottom-6 right-6 z-50 p-4 rounded-2xl bg-emerald-950 border border-emerald-500/60 text-emerald-200 text-xs font-bold shadow-2xl flex items-center gap-2 animate-bounce">
+            <CheckCircle2 className="h-5 w-5 text-emerald-400" />
+            <span>{copiedMedToast}</span>
+          </div>
+        )}
+
       </main>
 
-      {/* Footer info bar */}
-      <footer className={`py-6 mt-12 border-t text-center text-xs flex justify-between px-6 max-w-7xl w-full mx-auto transition-colors duration-300 ${
-        isHome ? "border-slate-200/90 text-slate-600" : "border-white/10 text-slate-400"
-      }`}>
-        <span>© 2026 TRINAYORA — Medical Identity System</span>
-        <div className="flex items-center gap-2">
-          <ShieldAlert className="h-4 w-4 text-emerald-500" />
-          <span>HIPAA & GDPR-ready Design</span>
-        </div>
-      </footer>
+      {/* Reusable Comprehensive Footer */}
+      <Footer theme={isHome ? "light" : "dark"} />
+
+      {/* Mobile Sticky CTA Bar for Handheld Devices */}
+      <StickyMobileCTA
+        onOpenPatientSignup={() => openAuthForRole("patient", "signup")}
+        onOpenDoctorLogin={() => openAuthForRole("doctor", "login")}
+      />
     </div>
   );
 }

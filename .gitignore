@@ -42,3 +42,9 @@ yarn-error.log*
 *.swo
 .DS_Store
 Thumbs.db
+
+# Executables & Backups
+cloudflared.exe
+*.exe
+*.bak
+

@@ -30,6 +30,13 @@ try:
 except Exception:
     pass
 
+try:
+    with engine.connect() as conn:
+        conn.execute(text("ALTER TABLE medical_records ADD COLUMN handwritten_prescription TEXT"))
+        conn.commit()
+except Exception:
+    pass
+
 app = FastAPI(
     title="SmartHealth ID API",
     description="RFID + QR Digital Medical Record System Backend",
@@ -190,16 +197,33 @@ def seed_data():
             )
             crud.create_vaccination(db, vac_in)
 
-            # 9. Add sample surgery
-            surg_in = schemas.SurgeryCreate(
-                patient_id=patient.id,
-                surgery_name="Appendectomy",
-                surgery_date=datetime.utcnow() - timedelta(days=365 * 2),
-                surgeon_name="Dr. Robert Lister",
-                notes="Laparoscopic appendectomy. Recovery uneventful."
+            # 10. Add sample previous prescriptions uploaded by patient
+            prev_p1 = schemas.PreviousPrescriptionCreate(
+                title="Cardiology & Hypertension Rx",
+                doctor_name="Dr. Anil Kapoor (Apollo Cardiology)",
+                prescription_date="2023-11-14",
+                source="local_storage",
+                file_name="apollo_prescription_nov2023.png",
+                file_type="image/png",
+                file_data="",
+                notes="Prescribed after initial evaluation of mild hypertension. Advised low sodium diet.",
+                medications_summary="Amlodipine 5mg (Once daily), Telmisartan 40mg (Morning)"
             )
-            crud.create_surgery(db, surg_in)
+            crud.create_previous_prescription(db, patient.id, prev_p1)
 
-            print("Database successfully seeded with demo accounts & records.")
+            prev_p2 = schemas.PreviousPrescriptionCreate(
+                title="Allergy & Pulmonary Consultation",
+                doctor_name="Dr. Sarah Jenkins (Metro Chest Clinic)",
+                prescription_date="2024-02-10",
+                source="google_drive",
+                file_name="allergy_prescription_drive.pdf",
+                file_type="link",
+                file_data="https://drive.google.com/file/d/1A2B3C4D5E6F7G8H9_sample/view",
+                notes="Seasonal allergy flare-up and wheezing. Peanut allergy confirmed.",
+                medications_summary="Levocetirizine 5mg (Nightly), Salbutamol Inhaler 100mcg (PRN)"
+            )
+            crud.create_previous_prescription(db, patient.id, prev_p2)
+
+            print("Database successfully seeded with demo accounts, records & previous prescriptions.")
     finally:
         db.close()

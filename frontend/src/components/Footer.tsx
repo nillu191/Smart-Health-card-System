@@ -41,13 +41,13 @@ export default function Footer({ theme = "light" }: FooterProps) {
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <span className="text-[11px] font-mono text-slate-400">24/7 Medical Hotline:</span>
+            <span className="text-[11px] font-mono text-slate-400">Direct Contact:</span>
             <a 
-              href="tel:+18007627843" 
+              href="tel:+917003284680" 
               className="text-xs font-bold font-mono text-sky-600 hover:text-sky-700 dark:text-sky-400 flex items-center gap-1"
             >
               <Phone className="h-3 w-3" />
-              +1 (800) 762-7843
+              +91 7003284680
             </a>
           </div>
         </div>
@@ -83,18 +83,17 @@ export default function Footer({ theme = "light" }: FooterProps) {
               <div className="flex items-start gap-2 text-slate-600 dark:text-slate-400">
                 <MapPin className="h-4 w-4 text-sky-500 shrink-0 mt-0.5" />
                 <span>
-                  <strong>Headquarters:</strong> 450 Healthtech Way, Silicon Valley, CA 94025, USA
+                  <strong>Headquarters:</strong> Newtown Rajarhat Kolkata WEST Bengal INDIA
                 </span>
               </div>
               <div className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
                 <Mail className="h-4 w-4 text-sky-500 shrink-0" />
-                <a href="mailto:support@smarthealth.id" className="hover:underline">
-                  support@smarthealth.id
+                <a href="mailto:niladrim826@gmail.com" className="hover:underline font-medium text-sky-600 dark:text-sky-400">
+                  niladrim826@gmail.com
                 </a>
-                <span className="text-slate-400">•</span>
-                <a href="mailto:emergency@smarthealth.id" className="hover:underline text-rose-500 dark:text-rose-400 font-semibold">
-                  emergency@smarthealth.id
-                </a>
+              </div>
+              <div className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 pt-1">
+                Developer & Founder: <span className="text-sky-600 dark:text-sky-400 font-bold">Niladri Majumder, CEO & Founder - TRINAYORA</span>
               </div>
             </div>
           </div>
@@ -188,18 +187,18 @@ export default function Footer({ theme = "light" }: FooterProps) {
                 </Link>
               </li>
               <li>
-                <a href="mailto:hospitals@smarthealth.id" className="hover:text-sky-600 dark:hover:text-cyan-400 transition-colors">
-                  Hospital Onboarding
+                <a href="mailto:niladrim826@gmail.com" className="hover:text-sky-600 dark:hover:text-cyan-400 transition-colors">
+                  Hospital Onboarding & Setup
                 </a>
               </li>
               <li>
-                <a href="mailto:security@smarthealth.id" className="hover:text-sky-600 dark:hover:text-cyan-400 transition-colors">
-                  Security Bug Bounty
+                <a href="mailto:niladrim826@gmail.com" className="hover:text-sky-600 dark:hover:text-cyan-400 transition-colors">
+                  Security Bug Bounty & Inquiries
                 </a>
               </li>
               <li>
-                <a href="tel:+9118007627843" className="hover:text-sky-600 dark:hover:text-cyan-400 transition-colors">
-                  Asia-Pacific Support: 1800-SMART-HEALTH
+                <a href="tel:+917003284680" className="hover:text-sky-600 dark:hover:text-cyan-400 transition-colors font-mono">
+                  Direct Line: +91 7003284680
                 </a>
               </li>
             </ul>

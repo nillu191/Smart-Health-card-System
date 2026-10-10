@@ -113,94 +113,66 @@ export default function ContactPage() {
           {/* Left Column: Direct Info Cards (5 Cols) */}
           <div className="lg:col-span-5 space-y-6">
             
-            {/* Emergency Hotline Card */}
+            {/* Emergency & Direct Hotline Card */}
             <div className="p-6 rounded-3xl bg-gradient-to-br from-rose-900 via-slate-900 to-slate-950 text-white shadow-xl space-y-4 border border-rose-500/30">
               <div className="flex items-center gap-3">
                 <div className="p-3 rounded-2xl bg-rose-500/20 text-rose-300 border border-rose-500/30">
                   <Phone className="h-6 w-6 animate-pulse" />
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-white">Emergency 24/7 Medical Triage</h3>
-                  <p className="text-xs text-rose-300">For urgent hospital QR / RFID lookup assistance</p>
+                  <h3 className="text-base font-bold text-white">Direct Hotline & Emergency Triage</h3>
+                  <p className="text-xs text-rose-300">24/7 SmartHealth ID Triage & Support</p>
                 </div>
               </div>
               <div className="space-y-2 pt-2 border-t border-white/10 text-xs">
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-400">Toll-Free (Americas):</span>
-                  <a href="tel:+18007627843" className="font-mono text-white font-bold hover:text-rose-300">
-                    +1 (800) 762-7843
+                  <span className="text-slate-400">Direct Phone:</span>
+                  <a href="tel:+917003284680" className="font-mono text-white font-bold hover:text-rose-300">
+                    +91 7003284680
                   </a>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-slate-400">Asia-Pacific Toll-Free:</span>
-                  <a href="tel:+9118007627843" className="font-mono text-white font-bold hover:text-rose-300">
-                    1800-SMART-HEALTH
-                  </a>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-400">Emergency Desk Email:</span>
-                  <a href="mailto:emergency@smarthealth.id" className="font-mono text-rose-400 font-bold hover:underline">
-                    emergency@smarthealth.id
+                  <span className="text-slate-400">Official Email:</span>
+                  <a href="mailto:niladrim826@gmail.com" className="font-mono text-rose-300 font-bold hover:underline">
+                    niladrim826@gmail.com
                   </a>
                 </div>
               </div>
             </div>
 
-            {/* Department Emails Card */}
-            <div className="p-6 rounded-3xl bg-white border border-slate-200 shadow-sm space-y-4">
-              <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
-                <Mail className="h-4 w-4 text-sky-600" />
-                Department Inboxes
-              </h3>
-
-              <div className="space-y-3 text-xs">
-                <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200/80 flex items-start justify-between">
-                  <div>
-                    <div className="font-bold text-slate-900">Patient & Health ID Inquiries</div>
-                    <div className="text-slate-500 text-[11px]">Card replacement, token renewal & records</div>
-                  </div>
-                  <a href="mailto:support@smarthealth.id" className="text-sky-600 font-bold font-mono hover:underline">
-                    support@smarthealth.id
-                  </a>
+            {/* Founder & Developer Card */}
+            <div className="p-6 rounded-3xl bg-gradient-to-br from-sky-900 via-slate-900 to-slate-950 text-white shadow-md space-y-3 border border-sky-500/30">
+              <div className="flex items-center gap-3">
+                <div className="p-3 rounded-2xl bg-sky-500/20 text-sky-300 border border-sky-500/30">
+                  <Sparkles className="h-5 w-5" />
                 </div>
-
-                <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200/80 flex items-start justify-between">
-                  <div>
-                    <div className="font-bold text-slate-900">Hospital & Health Network Setup</div>
-                    <div className="text-slate-500 text-[11px]">EMR / EHR API integration & hardware readers</div>
-                  </div>
-                  <a href="mailto:hospitals@smarthealth.id" className="text-sky-600 font-bold font-mono hover:underline">
-                    hospitals@smarthealth.id
-                  </a>
-                </div>
-
-                <div className="p-3 rounded-2xl bg-slate-50 border border-slate-200/80 flex items-start justify-between">
-                  <div>
-                    <div className="font-bold text-slate-900">Doctor NMR Verification Desk</div>
-                    <div className="text-slate-500 text-[11px]">Medical license validation & clinician onboarding</div>
-                  </div>
-                  <a href="mailto:clinicians@smarthealth.id" className="text-sky-600 font-bold font-mono hover:underline">
-                    clinicians@smarthealth.id
-                  </a>
+                <div>
+                  <h3 className="text-sm font-bold text-white">Developer & Leadership</h3>
+                  <p className="text-xs text-sky-300 font-semibold">
+                    Niladri Majumder, CEO & Founder - TRINAYORA
+                  </p>
                 </div>
               </div>
+              <p className="text-[11px] text-slate-300 leading-relaxed pt-1 border-t border-white/10">
+                Architecting next-generation RFID & dynamic QR sovereign digital health identification systems.
+              </p>
             </div>
 
-            {/* Physical Headquarters */}
+            {/* Official Headquarters Card */}
             <div className="p-6 rounded-3xl bg-white border border-slate-200 shadow-sm space-y-3">
               <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
                 <MapPin className="h-4 w-4 text-emerald-600" />
-                Global Innovation Hubs
+                Global Headquarters
               </h3>
 
-              <div className="space-y-3 text-xs text-slate-600">
-                <div>
-                  <div className="font-bold text-slate-900">North America HQ</div>
-                  <p>450 Healthtech Way, Suite 800, Silicon Valley, CA 94025, USA</p>
-                </div>
-                <div className="pt-2 border-t border-slate-100">
-                  <div className="font-bold text-slate-900">Asia-Pacific Tech Center</div>
-                  <p>88 Outer Ring Road, Tech Corridor, Bengaluru 560103, Karnataka, India</p>
+              <div className="text-xs text-slate-700 leading-relaxed space-y-1">
+                <div className="font-bold text-slate-900 text-sm">TRINAYORA Headquarters</div>
+                <p className="font-medium text-slate-800">Newtown Rajarhat Kolkata WEST Bengal INDIA</p>
+                <div className="pt-2 text-[11px] text-slate-500 flex items-center gap-2">
+                  <Mail className="h-3.5 w-3.5 text-sky-600" />
+                  <a href="mailto:niladrim826@gmail.com" className="text-sky-600 font-mono font-bold hover:underline">
+                    niladrim826@gmail.com
+                  </a>
                 </div>
               </div>
             </div>

@@ -1992,6 +1992,44 @@ RECOMMENDATION: Patient requires regular blood pressure monitoring. No contraind
 
             </section>
 
+            {/* OVERVIEW SYSTEM HIGHLIGHT & MISSION BANNER */}
+            <section className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-slate-950 via-slate-900 to-sky-950 border border-cyan-500/40 p-6 md:p-10 shadow-2xl">
+              <div className="absolute top-0 right-0 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
+              <div className="absolute bottom-0 left-0 w-80 h-80 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+
+              <div className="relative z-10 space-y-5">
+                <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-cyan-950/80 border border-cyan-500/40 text-cyan-300 text-xs font-mono font-bold shadow-inner">
+                  <Sparkles className="h-3.5 w-3.5 text-cyan-400 animate-pulse" />
+                  <span>OVERVIEW &amp; CLINICAL MISSION</span>
+                </div>
+
+                <div className="space-y-4">
+                  <p className="text-lg md:text-2xl font-bold text-white leading-relaxed tracking-tight">
+                    Every day, critical consultation time is wasted flipping through old prescription papers and missing medical histories. <span className="bg-gradient-to-r from-cyan-400 via-sky-300 to-emerald-400 bg-clip-text text-transparent">TRINAYORA fixes healthcare fragmentation with a unified SmartHealth ID.</span>
+                  </p>
+
+                  <p className="text-sm md:text-base text-slate-300 leading-relaxed font-medium">
+                    With a single tap of an RFID card or a scan of a dynamic QR code on any phone camera, doctors get instant, verified access to a patient’s previous medications and clinical history — <strong className="text-cyan-300 font-semibold">zero apps required for scanning, zero static data exposed.</strong>
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-4 pt-3 text-xs font-mono border-t border-white/10">
+                  <div className="flex items-center gap-1.5 text-cyan-300 font-semibold">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                    <span>1-Scan Instant Access</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-cyan-300 font-semibold">
+                    <ShieldCheck className="h-4 w-4 text-cyan-400" />
+                    <span>Zero Static Data Exposure</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-cyan-300 font-semibold">
+                    <QrCode className="h-4 w-4 text-sky-400" />
+                    <span>Universal Phone Camera Scannable</span>
+                  </div>
+                </div>
+              </div>
+            </section>
+
             {/* 3D CONNECTIVE NETWORK: HOSPITALS ⇄ CLINICIANS ⇄ PATIENTS */}
             <section className="space-y-8">
               <div className="text-center space-y-2">
